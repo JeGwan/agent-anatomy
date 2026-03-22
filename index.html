@@ -121,6 +121,7 @@ body {
   color:var(--text);
   white-space:pre-wrap;
   word-break:break-word;
+  line-height:1.6;
 }
 .msg .content.dim { color:var(--text-dim); }
 .msg .content code {
@@ -206,11 +207,13 @@ body {
   background:var(--bg);
   border:1px solid var(--border);
   border-radius:6px;
-  padding:8px 10px;
+  padding:10px 12px;
   margin-top:6px;
   font-size:0.68rem;
   overflow-x:auto;
-  line-height:1.6;
+  line-height:1.7;
+  white-space:pre;
+  tab-size:2;
 }
 .json-block .collapsed-hint {
   color:var(--text-faint);
@@ -738,12 +741,21 @@ function getDelay() {
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+function dedent(html) {
+  // Remove common leading whitespace from each line (ignoring blank lines)
+  const lines = html.split('\n');
+  const nonEmpty = lines.filter(l => l.trim().length > 0);
+  if (nonEmpty.length === 0) return html;
+  const minIndent = Math.min(...nonEmpty.map(l => l.match(/^(\s*)/)[1].length));
+  return lines.map(l => l.slice(minIndent)).join('\n').trim();
+}
+
 function createMsg(parent, { tag, label, text, json }) {
   const el = document.createElement('div');
   el.className = 'msg';
   let html = `<span class="tag ${tag}">${label}</span>`;
   html += `<div class="content">${text}</div>`;
-  if (json) html += `<div class="json-block">${json}</div>`;
+  if (json) html += `<div class="json-block">${dedent(json)}</div>`;
   el.innerHTML = html;
   parent.appendChild(el);
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('visible')));
