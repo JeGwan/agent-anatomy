@@ -569,6 +569,7 @@ async function renderStep(idx) {
     d.innerHTML = `<span>TURN ${s.turn} — ${s.label}</span>`;
     stepsEl.appendChild(d);
     requestAnimationFrame(()=>requestAnimationFrame(()=>d.classList.add('visible')));
+    setTimeout(()=>d.scrollIntoView({behavior:'smooth',block:'center'}),50);
     return;
   }
 
@@ -612,8 +613,10 @@ async function renderStep(idx) {
   $('stepNum').textContent = dataSteps;
   if (s.insight) $('insightText').textContent = s.insight;
 
-  // Scroll
-  stepEl.scrollIntoView({behavior:'smooth',block:'nearest'});
+  // Scroll — ensure new block is fully visible above the sticky insight bar
+  setTimeout(() => {
+    stepEl.scrollIntoView({behavior:'smooth',block:'center'});
+  }, 50);
 
   await sleep(delay());
 }
