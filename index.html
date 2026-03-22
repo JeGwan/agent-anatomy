@@ -857,18 +857,53 @@ const LANGS = [{code:'ko',name:'한국어'},{code:'en',name:'EN'},{code:'zh',nam
 
 // Syntax highlight plain JSON text
 function highlight(text) {
-  return text
-    .replace(/("(?:[^"\\]|\\.)*")(\s*:)/g, '<span class="jk">$1</span>$2')  // keys
-    .replace(/:(\s*"(?:[^"\\]|\\.)*")/g, ': <span class="js">$1</span>')     // string values
-    .replace(/"((?:[^"\\]|\\.)*)"/g, (m, p1, off, str) => {
-      // already wrapped? skip
-      if (str.substring(off-6, off).includes('class=')) return m;
-      return `<span class="js">"${p1}"</span>`;
-    })
-    .replace(/([{}\[\]])/g, '<span class="jb">$1</span>')
-    .replace(/(\/\/.*)/g, '<span class="jc">$1</span>')
-    .replace(/(←[^\n]*)/g, '<span class="jc">$1</span>');
+  // Simple token-based highlighter — no overlapping regex
+  let out = '', i = 0;
+  const s = text;
+  while (i < s.length) {
+    // Comment: // to end of line
+    if (s[i] === '/' && s[i+1] === '/') {
+      let end = s.indexOf('\n', i);
+      if (end === -1) end = s.length;
+      out += '<span class="jc">' + esc(s.slice(i, end)) + '</span>';
+      i = end; continue;
+    }
+    // ← comment to end of line
+    if (s[i] === '\u2190') {
+      let end = s.indexOf('\n', i);
+      if (end === -1) end = s.length;
+      out += '<span class="jc">' + esc(s.slice(i, end)) + '</span>';
+      i = end; continue;
+    }
+    // ★ as-is
+    if (s[i] === '\u2605') { out += s[i]; i++; continue; }
+    // String
+    if (s[i] === '"') {
+      let j = i + 1;
+      while (j < s.length && s[j] !== '"') { if (s[j] === '\\') j++; j++; }
+      j++; // closing quote
+      const str = s.slice(i, j);
+      // Check if followed by : → key
+      let k = j;
+      while (k < s.length && (s[k] === ' ' || s[k] === '\t')) k++;
+      if (s[k] === ':') {
+        out += '<span class="jk">' + esc(str) + '</span>';
+      } else {
+        out += '<span class="js">' + esc(str) + '</span>';
+      }
+      i = j; continue;
+    }
+    // Brackets
+    if ('{[()]}'.includes(s[i])) {
+      out += '<span class="jb">' + s[i] + '</span>';
+      i++; continue;
+    }
+    // Everything else
+    out += esc(s[i]); i++;
+  }
+  return out;
 }
+function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function initLang() {
   const sel = $('langSel');
