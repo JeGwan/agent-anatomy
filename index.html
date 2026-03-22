@@ -3,567 +3,894 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agent Anatomy — LLM Agent 통신의 해부학</title>
+<title>Agent Anatomy</title>
 <style>
-:root {
-  --bg: #08080d;
-  --surface: #0f0f16;
-  --surface2: #16161f;
-  --surface3: #1e1e2a;
-  --border: #252535;
-  --text: #d8d8e8;
-  --dim: #6e6e8e;
-  --faint: #3e3e55;
-  --accent: #818cf8;
-  --accent-bg: rgba(129,140,248,0.08);
-  --green: #34d399;
-  --green-bg: rgba(52,211,153,0.08);
-  --orange: #fbbf24;
-  --orange-bg: rgba(251,191,36,0.08);
-  --pink: #f472b6;
-  --pink-bg: rgba(244,114,182,0.08);
-  --cyan: #22d3ee;
-  --cyan-bg: rgba(34,211,238,0.08);
-  --red: #f87171;
-  --blue: #60a5fa;
-  --blue-bg: rgba(96,165,250,0.08);
+:root{
+  --bg:#08080d;--surface:#0f0f16;--surface2:#16161f;--surface3:#1e1e2a;
+  --border:#252535;--text:#d8d8e8;--dim:#6e6e8e;--faint:#3e3e55;
+  --accent:#818cf8;--accent-bg:rgba(129,140,248,.08);
+  --green:#34d399;--green-bg:rgba(52,211,153,.08);
+  --orange:#fbbf24;--orange-bg:rgba(251,191,36,.08);
+  --pink:#f472b6;--pink-bg:rgba(244,114,182,.08);
+  --cyan:#22d3ee;--cyan-bg:rgba(34,211,238,.08);
+  --red:#f87171;--blue:#60a5fa;--blue-bg:rgba(96,165,250,.08);
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'SF Mono','Fira Code','JetBrains Mono',monospace;background:var(--bg);color:var(--text);overflow-x:hidden}
-
-/* Header */
 .header{text-align:center;padding:2rem 1rem 1.2rem;border-bottom:1px solid var(--border)}
 .header h1{font-size:1.8rem;font-weight:300}
 .header h1 b{color:var(--accent);font-weight:700}
-.header p{color:var(--dim);font-size:0.85rem;margin-top:0.3rem}
-
-/* Controls */
-.controls{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 20px;border-bottom:1px solid var(--border);
-  background:var(--surface);position:sticky;top:0;z-index:100;
-}
-.btn{padding:7px 16px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.8rem;transition:all 0.2s}
-.btn:hover{border-color:var(--accent)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn:disabled{opacity:0.3;cursor:default}
-.turn-info{color:var(--dim);font-size:0.8rem}
-.turn-info b{color:var(--accent)}
+.header p{color:var(--dim);font-size:.85rem;margin-top:.3rem}
+.controls{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.btn{padding:7px 16px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:6px;cursor:pointer;font-family:inherit;font-size:.8rem;transition:all .2s}
+.btn:hover{border-color:var(--accent)}.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn:disabled{opacity:.3;cursor:default}
+.turn-info{color:var(--dim);font-size:.8rem}.turn-info b{color:var(--accent)}
 .spacer{flex:1}
-.speed-ctrl{display:flex;align-items:center;gap:6px;color:var(--faint);font-size:0.75rem}
+.speed-ctrl{display:flex;align-items:center;gap:6px;color:var(--faint);font-size:.75rem}
 .speed-ctrl input{width:60px;accent-color:var(--accent)}
+.lang-sel{display:flex;gap:2px}
+.lang-btn{padding:3px 8px;border:1px solid var(--border);background:var(--surface2);color:var(--dim);border-radius:4px;cursor:pointer;font-size:.65rem;font-family:inherit;transition:all .2s}
+.lang-btn:hover{border-color:var(--accent)}.lang-btn.active{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
 
-/* Sequence Diagram */
-.sequence{
-  max-width:1100px;margin:0 auto;padding:0 20px 60px;
-  position:relative;
-}
-
-/* Three Lanes */
-.lane-headers{
-  display:grid;grid-template-columns:1fr 1fr 1fr;
-  position:sticky;top:45px;z-index:90;
-  background:var(--bg);padding:16px 0 12px;
-  border-bottom:1px solid var(--border);
-}
-.lane-header{
-  text-align:center;
-}
-.lane-node{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:8px 20px;border-radius:24px;
-  font-size:0.8rem;font-weight:700;
-  text-transform:uppercase;letter-spacing:0.08em;
-}
-.lane-node.user-node{background:var(--green-bg);color:var(--green);border:1px solid rgba(52,211,153,0.3)}
-.lane-node.agent-node{background:var(--orange-bg);color:var(--orange);border:1px solid rgba(251,191,36,0.3)}
-.lane-node.llm-node{background:var(--accent-bg);color:var(--accent);border:1px solid rgba(129,140,248,0.3)}
+.sequence{max-width:1100px;margin:0 auto;padding:0 20px 60px;position:relative}
+.lane-headers{display:grid;grid-template-columns:1fr 1fr 1fr;position:sticky;top:45px;z-index:90;background:var(--bg);padding:16px 0 12px;border-bottom:1px solid var(--border)}
+.lane-header{text-align:center}
+.lane-node{display:inline-flex;align-items:center;gap:8px;padding:8px 20px;border-radius:24px;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.lane-node.user-node{background:var(--green-bg);color:var(--green);border:1px solid rgba(52,211,153,.3)}
+.lane-node.agent-node{background:var(--orange-bg);color:var(--orange);border:1px solid rgba(251,191,36,.3)}
+.lane-node.llm-node{background:var(--accent-bg);color:var(--accent);border:1px solid rgba(129,140,248,.3)}
 .lane-node .node-dot{width:8px;height:8px;border-radius:50%}
-.user-node .node-dot{background:var(--green)}
-.agent-node .node-dot{background:var(--orange)}
-.llm-node .node-dot{background:var(--accent)}
+.user-node .node-dot{background:var(--green)}.agent-node .node-dot{background:var(--orange)}.llm-node .node-dot{background:var(--accent)}
 
-/* Lifelines */
-.lane-lines{
-  position:absolute;top:100px;left:0;right:0;bottom:0;
-  display:grid;grid-template-columns:1fr 1fr 1fr;
-  pointer-events:none;z-index:0;
-}
-.lifeline{
-  border-left:1px dashed var(--border);
-  margin-left:50%;
-}
-
-/* Steps container */
+.lane-lines{position:absolute;top:100px;left:0;right:0;bottom:0;display:grid;grid-template-columns:1fr 1fr 1fr;pointer-events:none;z-index:0}
+.lifeline{border-left:1px dashed var(--border);margin-left:50%}
 .steps{position:relative;z-index:1;padding-top:16px}
 
-/* Step */
-.step{
-  opacity:0;transform:translateY(12px);
-  transition:opacity 0.5s,transform 0.5s;
-  margin-bottom:6px;
-}
+.step{opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;margin-bottom:6px}
 .step.visible{opacity:1;transform:translateY(0)}
 
-/* Arrow Row */
-.arrow-row{
-  display:grid;grid-template-columns:1fr 1fr 1fr;
-  align-items:center;
-  min-height:36px;
-  position:relative;
-}
-
-/* Arrow */
-.arrow{
-  position:relative;
-  display:flex;align-items:center;
-  padding:4px 0;
-}
-.arrow-line{
-  flex:1;height:2px;
-  background:var(--arrow-color);
-}
-.arrow-head{
-  width:0;height:0;
-  border-top:6px solid transparent;
-  border-bottom:6px solid transparent;
-  flex-shrink:0;
-}
-/* Right arrow */
+.arrow-row{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;min-height:36px;position:relative}
+.arrow{position:relative;display:flex;align-items:center;padding:4px 0}
+.arrow-line{flex:1;height:2px;background:var(--arrow-color)}
+.arrow-head{width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;flex-shrink:0}
 .arrow.right .arrow-head{border-left:10px solid var(--arrow-color)}
-/* Left arrow */
 .arrow.left .arrow-head{border-right:10px solid var(--arrow-color)}
 .arrow.left{flex-direction:row-reverse}
+.arrow-label{position:absolute;top:-14px;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;color:var(--dim)}
+.arrow.right .arrow-label{left:8px}.arrow.left .arrow-label{right:8px}
+.span-1-2{grid-column:1/3;padding:0 25%}.span-2-3{grid-column:2/4;padding:0 25%}
+.span-3-2{grid-column:2/4;padding:0 25%}.span-2-1{grid-column:1/3;padding:0 25%}
 
-.arrow-label{
-  position:absolute;top:-14px;
-  font-size:0.6rem;font-weight:600;
-  text-transform:uppercase;letter-spacing:0.06em;
-  white-space:nowrap;
-  color:var(--dim);
-}
-.arrow.right .arrow-label{left:8px}
-.arrow.left .arrow-label{right:8px}
-
-/* Spans for arrow placement — each lane=33.3%, arrow spans 2 lanes (66.7%)
-   Lane center within 2-lane span: 25% from each edge */
-.span-1-2{grid-column:1/3;padding:0 25%}
-.span-2-3{grid-column:2/4;padding:0 25%}
-.span-3-2{grid-column:2/4;padding:0 25%}
-.span-2-1{grid-column:1/3;padding:0 25%}
-
-/* Message Card — attached below arrows */
-.msg-row{
-  display:grid;grid-template-columns:1fr 1fr 1fr;
-  margin-bottom:8px;
-}
-.msg-card{
-  background:var(--surface2);
-  border:1px solid var(--border);
-  border-radius:8px;
-  padding:10px 12px;
-  font-size:0.72rem;
-  line-height:1.6;
-  max-width:100%;
-  overflow:hidden;
-}
-.msg-card.at-user{grid-column:1}
-.msg-card.at-agent{grid-column:2}
-.msg-card.at-llm{grid-column:3}
+.msg-row{display:grid;grid-template-columns:1fr 1fr 1fr;margin-bottom:8px}
+.msg-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:.72rem;line-height:1.6;max-width:100%;overflow:hidden}
+.msg-card.at-user{grid-column:1}.msg-card.at-agent{grid-column:2}.msg-card.at-llm{grid-column:3}
 .msg-card.span-agent-llm{grid-column:2/4}
-
-.msg-card .card-tag{
-  display:inline-block;padding:1px 6px;border-radius:3px;
-  font-size:0.58rem;font-weight:700;text-transform:uppercase;
-  letter-spacing:0.05em;margin-bottom:5px;margin-right:4px;
-}
-.t-green{background:var(--green-bg);color:var(--green)}
-.t-cyan{background:var(--cyan-bg);color:var(--cyan)}
-.t-orange{background:var(--orange-bg);color:var(--orange)}
-.t-pink{background:var(--pink-bg);color:var(--pink)}
-.t-accent{background:var(--accent-bg);color:var(--accent)}
-.t-blue{background:var(--blue-bg);color:var(--blue)}
-.t-red{background:rgba(248,113,113,0.1);color:var(--red)}
-
+.msg-card .card-tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;margin-right:4px}
+.t-green{background:var(--green-bg);color:var(--green)}.t-cyan{background:var(--cyan-bg);color:var(--cyan)}
+.t-orange{background:var(--orange-bg);color:var(--orange)}.t-pink{background:var(--pink-bg);color:var(--pink)}
+.t-accent{background:var(--accent-bg);color:var(--accent)}.t-blue{background:var(--blue-bg);color:var(--blue)}
+.t-red{background:rgba(248,113,113,.1);color:var(--red)}
 .msg-card .card-text{color:var(--text);white-space:pre-wrap;word-break:break-word}
-.msg-card .card-dim{color:var(--dim)}
 
-/* JSON in cards */
-.json{
-  background:var(--bg);border:1px solid var(--border);
-  border-radius:5px;padding:8px 10px;margin-top:6px;
-  font-size:0.65rem;line-height:1.7;
-  white-space:pre-wrap;word-break:break-word;
-  overflow:hidden;
-}
-.jk{color:var(--cyan)}
-.js{color:var(--green)}
-.jb{color:var(--dim)}
-.jc{color:var(--faint);font-style:italic}
+.json{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;margin-top:6px;font-size:.65rem;line-height:1.7;white-space:pre-wrap;word-break:break-word;overflow:hidden;opacity:0;max-height:0;transition:opacity .4s .15s,max-height .4s .15s}
+.json.show{opacity:1;max-height:2000px}
+.jk{color:var(--cyan)}.js{color:var(--green)}.jb{color:var(--dim)}.jc{color:var(--faint);font-style:italic}
 
-/* Turn divider */
-.turn-divider{
-  text-align:center;padding:16px 0 10px;
-  color:var(--faint);font-size:0.65rem;
-  letter-spacing:0.1em;
-}
-.turn-divider span{
-  padding:3px 14px;border:1px dashed var(--border);border-radius:12px;
-}
+.turn-divider{text-align:center;padding:16px 0 10px;color:var(--faint);font-size:.65rem;letter-spacing:.1em}
+.turn-divider span{padding:3px 14px;border:1px dashed var(--border);border-radius:12px}
+.insight-bar{position:sticky;bottom:0;z-index:90;background:var(--surface);border-top:1px solid var(--border);padding:10px 20px;font-size:.78rem;display:flex;align-items:center;gap:10px}
+.insight-bar .badge{background:var(--accent-bg);color:var(--accent);padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700;white-space:nowrap}
 
-/* Insight bar */
-.insight-bar{
-  position:sticky;bottom:0;z-index:90;
-  background:var(--surface);border-top:1px solid var(--border);
-  padding:10px 20px;font-size:0.78rem;
-  display:flex;align-items:center;gap:10px;
-}
-.insight-bar .badge{
-  background:var(--accent-bg);color:var(--accent);
-  padding:2px 8px;border-radius:4px;
-  font-size:0.65rem;font-weight:700;white-space:nowrap;
-}
-
-/* Highlight pulse */
-@keyframes card-pop{
-  0%{box-shadow:0 0 0 0 rgba(129,140,248,0.3)}
-  70%{box-shadow:0 0 0 8px rgba(129,140,248,0)}
-  100%{box-shadow:0 0 0 0 rgba(129,140,248,0)}
-}
-.msg-card.pop{animation:card-pop 0.6s ease-out}
-
-@keyframes arrow-draw{
-  from{transform:scaleX(0)}
-  to{transform:scaleX(1)}
-}
-.arrow.right.animate .arrow-line{animation:arrow-draw 0.3s ease-out forwards;transform-origin:left center}
-.arrow.left.animate .arrow-line{animation:arrow-draw 0.3s ease-out forwards;transform-origin:right center}
-
-@media(max-width:800px){
-  .lane-headers,.arrow-row,.msg-row,.lane-lines{display:block!important}
-  .lane-header{display:inline-block;margin:0 4px}
-  .span-1-2,.span-2-3,.span-3-2,.span-2-1{padding:0 20px}
-  .msg-card{grid-column:auto!important;margin:4px 0}
-  .lifeline{display:none}
-}
+@keyframes card-pop{0%{box-shadow:0 0 0 0 rgba(129,140,248,.3)}70%{box-shadow:0 0 0 8px rgba(129,140,248,0)}100%{box-shadow:0 0 0 0 rgba(129,140,248,0)}}
+.msg-card.pop{animation:card-pop .6s ease-out}
+@keyframes arrow-draw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.arrow.right.animate .arrow-line{animation:arrow-draw .3s ease-out forwards;transform-origin:left center}
+.arrow.left.animate .arrow-line{animation:arrow-draw .3s ease-out forwards;transform-origin:right center}
+@media(max-width:800px){.lane-headers,.arrow-row,.msg-row,.lane-lines{display:block!important}.lane-header{display:inline-block;margin:0 4px}.span-1-2,.span-2-3,.span-3-2,.span-2-1{padding:0 20px}.msg-card{grid-column:auto!important;margin:4px 0}.lifeline{display:none}}
 </style>
 </head>
 <body>
-
 <div class="header">
   <h1>The <b>Anatomy</b> of an LLM Agent</h1>
-  <p>User ↔ Agent ↔ LLM — request/response 사이클을 해부한다</p>
+  <p id="subtitle"></p>
 </div>
-
 <div class="controls">
   <button class="btn primary" id="btnPlay">&#9654; Play</button>
   <button class="btn" id="btnStep">Step</button>
   <button class="btn" id="btnReset">Reset</button>
   <span class="turn-info">Step <b id="stepNum">0</b> / <b id="stepTotal">0</b></span>
   <span class="spacer"></span>
+  <div class="lang-sel" id="langSel"></div>
   <div class="speed-ctrl">
     <label>Speed</label>
     <input type="range" id="speedSlider" min="1" max="5" value="1">
   </div>
 </div>
-
 <div class="sequence">
-  <!-- Lane Headers -->
   <div class="lane-headers">
     <div class="lane-header"><span class="lane-node user-node"><span class="node-dot"></span>User</span></div>
     <div class="lane-header"><span class="lane-node agent-node"><span class="node-dot"></span>Agent</span></div>
     <div class="lane-header"><span class="lane-node llm-node"><span class="node-dot"></span>LLM</span></div>
   </div>
-  <!-- Lifelines -->
   <div class="lane-lines"><div class="lifeline"></div><div class="lifeline"></div><div class="lifeline"></div></div>
-  <!-- Steps go here -->
   <div class="steps" id="steps"></div>
 </div>
-
 <div class="insight-bar">
   <span class="badge" id="insightBadge">INSIGHT</span>
-  <span id="insightText">Play를 눌러 시작하세요. User ↔ Agent ↔ LLM 사이 메시지가 어떻게 오가는지 볼 수 있습니다.</span>
+  <span id="insightText"></span>
 </div>
 
 <script>
 // ============================================================
-// STEP DATA
-// Each step: arrows + cards showing what's happening
+// i18n
 // ============================================================
-const STEPS = [
-// ── TURN 1 ──
-{ turn: 1, label: '사용자가 요청을 입력한다' },
-{
-  arrows: [{ from:1, to:2, color:'var(--green)', label:'user message' }],
-  cards: [{
-    col:'at-user', tags:[{t:'t-green',l:'입력'}],
-    text:'"할일 API 만들어줘"',
-  }],
-  insight:'사용자의 텍스트가 Agent에게 전달된다. 아직 LLM은 관여하지 않는다.'
-},
-{
-  arrows: [{ from:2, to:3, color:'var(--orange)', label:'API request' }],
-  cards: [{
-    col:'span-agent-llm', tags:[{t:'t-cyan',l:'system'},{t:'t-orange',l:'tools'},{t:'t-accent',l:'skills'},{t:'t-green',l:'user msg'}],
-    text:'Agent가 모든 컨텍스트를 조립해서 LLM API에 전송:',
-    json:`<span class="jb">{</span>
-  <span class="jk">"system"</span>: <span class="js">"You are Claude Code...\\n규칙, 제약, 페르소나"</span>,
-  <span class="jk">"tools"</span>: <span class="jb">[</span>
-    <span class="jb">{</span> <span class="jk">"name"</span>: <span class="js">"Bash"</span>, <span class="jk">"description"</span>: <span class="js">"..."</span> <span class="jb">}</span>,
-    <span class="jb">{</span> <span class="jk">"name"</span>: <span class="js">"Read"</span>, ... <span class="jb">}</span>,
-    <span class="jb">{</span> <span class="jk">"name"</span>: <span class="js">"Write"</span>, ... <span class="jb">}</span>,
-    <span class="jb">{</span> <span class="jk">"name"</span>: <span class="js">"Edit"</span>, ... <span class="jb">}</span>,
-    <span class="jb">{</span> <span class="jk">"name"</span>: <span class="js">"mcp__jira__search"</span>, ... <span class="jb">}</span>  <span class="jc">← MCP 도구도 여기 섞임</span>
-  <span class="jb">]</span>,
-  <span class="jk">"messages"</span>: <span class="jb">[</span>
-    <span class="jb">{</span> <span class="jk">"role"</span>: <span class="js">"user"</span>, <span class="jk">"content"</span>: <span class="js">"할일 API 만들어줘"</span> <span class="jb">}</span>
-  <span class="jb">]</span>
-<span class="jb">}</span>
-<span class="jc">// system: 페르소나 + 규칙 + 스킬 목록 (텍스트로 주입)</span>
-<span class="jc">// tools: LLM이 호출할 수 있는 도구 정의</span>
-<span class="jc">// messages: 대화 히스토리 (첫 턴이라 1개)</span>`
-  }],
-  insight:'Agent의 핵심 역할: system + tools[] + messages[]를 조립해서 LLM API에 보내는 것. 스킬은 system에 텍스트로, MCP 도구는 tools[]에 섞여 들어간다. LLM은 이 구분을 모른다.'
-},
-{
-  arrows: [{ from:3, to:2, color:'var(--accent)', label:'response (tool_use)' }],
-  cards: [{
-    col:'at-llm', tags:[{t:'t-accent',l:'LLM 판단'}],
-    text:'LLM이 "프로젝트 구조부터 확인하자"고 결정:',
-    json:`<span class="jb">{</span>
-  <span class="jk">"role"</span>: <span class="js">"assistant"</span>,
-  <span class="jk">"content"</span>: <span class="jb">[</span>
-    <span class="jb">{</span> <span class="jk">"type"</span>: <span class="js">"text"</span>,
-      <span class="jk">"text"</span>: <span class="js">"프로젝트 구조를 확인합니다."</span> <span class="jb">}</span>,
-    <span class="jb">{</span> <span class="jk">"type"</span>: <span class="js">"tool_use"</span>,
-      <span class="jk">"id"</span>: <span class="js">"toolu_01a"</span>,
-      <span class="jk">"name"</span>: <span class="js">"Bash"</span>,
-      <span class="jk">"input"</span>: <span class="jb">{</span> <span class="jk">"command"</span>: <span class="js">"ls -la"</span> <span class="jb">}</span> <span class="jb">}</span>
-  <span class="jb">]</span>
-<span class="jb">}</span>
-<span class="jc">// tool_use = "이 도구를 이 인자로 실행해줘"</span>
-<span class="jc">// LLM은 JSON을 출력할 뿐, 실행은 못 한다</span>`
-  }],
-  insight:'LLM은 tools[]를 보고 "Bash를 쓸 수 있구나"를 안다. tool_use는 "실행 요청"이지 실행이 아니다. LLM은 JSON을 출력하는 것이 전부.'
-},
-{
-  arrows: [],
-  cards: [{
-    col:'at-agent', tags:[{t:'t-orange',l:'실행'}],
-    text:'Agent가 tool_use를 파싱하고 실제 실행:\n\n$ ls -la\npackage.json\nnode_modules/\nsrc/\n  app.js\n  routes/\ntests/',
-  }],
-  insight:'Agent의 두 번째 역할: LLM 응답에서 tool_use를 감지하면 실제로 실행하고, 결과를 수집한다.'
-},
-// ── TURN 2 ──
-{ turn: 2, label: 'Agent가 결과를 LLM에게 돌려보낸다' },
-{
-  arrows: [{ from:2, to:3, color:'var(--orange)', label:'tool_result 포함 재요청' }],
-  cards: [{
-    col:'span-agent-llm', tags:[{t:'t-orange',l:'tool_result'},{t:'t-red',l:'history 누적'}],
-    text:'Agent가 실행 결과를 messages[]에 추가하고 다시 LLM 호출:',
-    json:`<span class="jk">"messages"</span>: <span class="jb">[</span>
-  <span class="jc">// 1. 원래 유저 메시지</span>
-  <span class="jb">{</span> <span class="jk">"role"</span>: <span class="js">"user"</span>,
-    <span class="jk">"content"</span>: <span class="js">"할일 API 만들어줘"</span> <span class="jb">}</span>,
+const L = {
+ko: {
+  subtitle: 'User ↔ Agent ↔ LLM — request/response 사이클을 해부한다',
+  startHint: 'Play를 눌러 시작하세요. User ↔ Agent ↔ LLM 사이 메시지가 어떻게 오가는지 볼 수 있습니다.',
+  conclusion: 'Agent = while(true) { context.assemble() → llm.call() → response.parse() → tool.execute() → context.append(result) }. 이 루프가 전부다. Context Engineering이 곧 Agent Engineering.',
+  turns: [
+    { turn:1, label:'사용자가 요청을 입력한다' },
+    { arrows:[{from:1,to:2,color:'var(--green)',label:'user message'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'입력'}],text:'"할일 API 만들어줘"'}],
+      insight:'사용자의 텍스트가 Agent에게 전달된다. 아직 LLM은 관여하지 않는다.' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'API request'}],
+      cards:[{col:'span-agent-llm',tags:[{t:'t-cyan',l:'system'},{t:'t-orange',l:'tools'},{t:'t-accent',l:'skills'},{t:'t-green',l:'user msg'}],
+        text:'Agent가 모든 컨텍스트를 조립해서 LLM API에 전송:',
+        json:`{
+  "system": "You are Claude Code...\\n규칙, 제약, 페르소나\\n\\n## Available Skills\\n- /commit: Git commit workflow\\n- /test: Run test suite\\n- /review-pr: Review pull request\\n...",
 
-  <span class="jc">// 2. 이전 LLM 응답 (그대로 보존)</span>
-  <span class="jb">{</span> <span class="jk">"role"</span>: <span class="js">"assistant"</span>,
-    <span class="jk">"content"</span>: <span class="jb">[</span>..text, ..tool_use<span class="jb">]</span> <span class="jb">}</span>,
+  "tools": [
+    { "name": "Bash", "description": "..." },
+    { "name": "Read", ... },
+    { "name": "Write", ... },
+    { "name": "Edit", ... },
+    { "name": "mcp__jira__search", ... }  // ← MCP 도구도 여기 섞임
+  ],
 
-  <span class="jc">// 3. ★ 도구 실행 결과 (user role로!)</span>
-  <span class="jb">{</span> <span class="jk">"role"</span>: <span class="js">"user"</span>,
-    <span class="jk">"content"</span>: <span class="jb">[{</span>
-      <span class="jk">"type"</span>: <span class="js">"tool_result"</span>,
-      <span class="jk">"tool_use_id"</span>: <span class="js">"toolu_01a"</span>,
-      <span class="jk">"content"</span>: <span class="js">"package.json\\nsrc/\\n  app.js..."</span>
-    <span class="jb">}]</span> <span class="jb">}</span>
-<span class="jb">]</span>
-<span class="jc">// tool_result가 "user" role인 이유:</span>
-<span class="jc">// LLM API에는 user/assistant만 있다.</span>
-<span class="jc">// Agent가 결과를 "유저가 알려준 것"처럼 넣는다.</span>`
+  "messages": [
+    { "role": "user", "content": "할일 API 만들어줘" }
+  ]
+}
+// system: 페르소나 + 규칙 + 스킬 목록 (텍스트로 주입)
+// skills는 별도 API 파라미터가 아니라 system 안의 텍스트
+// tools: LLM이 호출할 수 있는 도구 정의
+// messages: 대화 히스토리 (첫 턴이라 1개)`}],
+      insight:'Agent의 핵심 역할: system + tools[] + messages[]를 조립해서 LLM API에 보내는 것. 스킬은 system 프롬프트 안에 텍스트로, MCP 도구는 tools[]에 섞여 들어간다. LLM은 이 구분을 모른다.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'LLM 판단'}],
+        text:'LLM이 "프로젝트 구조부터 확인하자"고 결정:',
+        json:`{
+  "role": "assistant",
+  "content": [
+    { "type": "text",
+      "text": "프로젝트 구조를 확인합니다." },
+    { "type": "tool_use",
+      "id": "toolu_01a",
+      "name": "Bash",
+      "input": { "command": "ls -la" } }
+  ]
+}
+// tool_use = "이 도구를 이 인자로 실행해줘"
+// LLM은 JSON을 출력할 뿐, 실행은 못 한다`}],
+      insight:'LLM은 tools[]를 보고 "Bash를 쓸 수 있구나"를 안다. tool_use는 "실행 요청"이지 실행이 아니다. LLM은 JSON을 출력하는 것이 전부.' },
+    { arrows:[],
+      cards:[{col:'at-agent',tags:[{t:'t-orange',l:'실행'}],text:'Agent가 tool_use를 파싱하고 실제 실행:\n\n$ ls -la\npackage.json\nnode_modules/\nsrc/\n  app.js\n  routes/\ntests/'}],
+      insight:'Agent의 두 번째 역할: LLM 응답에서 tool_use를 감지하면 실제로 실행하고, 결과를 수집한다.' },
+
+    { turn:2, label:'Agent가 결과를 LLM에게 돌려보낸다' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'tool_result 포함 재요청'}],
+      cards:[{col:'span-agent-llm',tags:[{t:'t-orange',l:'tool_result'},{t:'t-red',l:'history 누적'}],
+        text:'Agent가 실행 결과를 messages[]에 추가하고 다시 LLM 호출:',
+        json:`"messages": [
+  // 1. 원래 유저 메시지
+  { "role": "user",
+    "content": "할일 API 만들어줘" },
+
+  // 2. 이전 LLM 응답 (그대로 보존)
+  { "role": "assistant",
+    "content": [..text, ..tool_use] },
+
+  // 3. ★ 도구 실행 결과 (user role로!)
+  { "role": "user",
+    "content": [{
+      "type": "tool_result",
+      "tool_use_id": "toolu_01a",
+      "content": "package.json\\nsrc/\\n  app.js..."
+    }] }
+]
+// tool_result가 "user" role인 이유:
+// LLM API에는 user/assistant만 있다.
+// Agent가 결과를 "유저가 알려준 것"처럼 넣는다.`}],
+      insight:'핵심 구조: tool_result는 "user" role로 들어간다! LLM API에 "도구 결과"라는 role은 없다. Agent가 실행 결과를 user 메시지로 끼워넣는 것. LLM은 매번 전체 messages[]를 처음부터 읽는다 (stateless).' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'판단'}],
+        text:'ls 결과를 보고 Express 라우터 생성을 결정:',
+        json:`{
+  "content": [
+    { "type": "tool_use",
+      "name": "Write",
+      "input": {
+        "file_path": "src/routes/todos.js",
+        "content": "const router = require..."
+      } }
+  ]
+}`}],
+      insight:'LLM은 "src/routes/ 디렉토리가 있다"를 history에서 확인하고 거기에 파일을 만들기로 했다. 이전 턴의 결과가 다음 판단의 근거.' },
+    { arrows:[],
+      cards:[{col:'at-agent',tags:[{t:'t-orange',l:'실행'}],text:'Agent가 Write 도구 실행:\n→ src/routes/todos.js 파일 생성 완료'}],
+      insight:null },
+
+    { turn:3, label:'테스트 실행 → 실패 → 자가 수정' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'result + 재요청'}],
+      cards:[{col:'at-agent',tags:[{t:'t-orange',l:'context 조립'}],
+        text:'messages[]가 점점 길어진다:\n\n[user] "할일 API 만들어줘"\n[assistant] tool_use: Bash(ls)\n[user] tool_result: 디렉토리 목록\n[assistant] tool_use: Write(todos.js)\n[user] tool_result: 파일 생성 완료\n← 매번 이 전부를 LLM에게 보낸다'}],
+      insight:'LLM은 stateless — 매 호출마다 전체 대화를 처음부터 다시 읽는다. "기억"이란 없고, messages[]에 있는 것이 전부다. 대화가 길어지면 context window를 넘기므로 Agent가 오래된 메시지를 요약/삭제한다.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Bash'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'판단'}],
+        text:'코드를 작성했으니 테스트 실행:',
+        json:`{ "name": "Bash",
+  "input": { "command": "npm test" } }
+// system prompt: "코드 작성 후 반드시 테스트"
+// 이 지침이 없으면 테스트 안 했을 수도!`}],
+      insight:'System Prompt의 "테스트를 돌려라" 지침이 이 행동을 만들었다. 시스템 프롬프트 = LLM의 습관과 원칙.' },
+    { arrows:[{from:2,to:3,color:'var(--red)',label:'test failure'}],
+      cards:[{col:'at-agent',tags:[{t:'t-red',l:'실패 결과'}],
+        text:'Agent가 테스트 결과를 tool_result로 전달:\n\n✓ GET /todos\n✓ POST /todos\n✗ GET /todos/:id → 404 처리 누락\n\n→ 이 에러 로그가 그대로 LLM에게 간다'}],
+      insight:'"자가 수정"의 비밀: 에러 로그가 context에 있으니까 LLM이 원인을 추론할 수 있는 것. Agent가 결과를 넣어주지 않았다면 LLM은 실패 사실조차 모른다.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Edit (수정)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'자가 수정'}],
+        text:'실패 원인을 분석하고 수정:',
+        json:`{ "name": "Edit", "input": {
+  "file_path": "src/routes/todos.js",
+  "old_string": "const todo = todos[id];",
+  "new_string": "const todo = todos[id];\\nif (!todo) return res.status(404)..."
+} }
+// 에러 메시지 → 원인 추론 → 수정 코드 생성
+// 전부 context 안의 정보로만 한 것`}],
+      insight:'LLM이 버그를 고친 건 "똑똑해서"가 아니라 에러 로그 + 원본 코드가 context에 있었기 때문이다.' },
+
+    { turn:4, label:'MCP — 외부 시스템 연동' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: mcp__jira'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'판단'}],
+        text:'테스트 통과 후 Jira 업데이트를 결정:',
+        json:`{ "name": "mcp__jira__transition_issue",
+  "input": {
+    "issue_key": "CLIP-123",
+    "transition": "Done"
+  } }
+// LLM은 이게 MCP인지 모른다
+// 그냥 tools[]에 있는 도구를 골랐을 뿐`}],
+      insight:'LLM 입장에서 Bash든 mcp__jira든 동일한 "도구"다. MCP는 Agent가 외부 서버에서 도구를 가져오는 프로토콜일 뿐, LLM은 MCP의 존재를 모른다.' },
+    { arrows:[],
+      cards:[{col:'at-agent',tags:[{t:'t-pink',l:'MCP 라우팅'}],
+        text:'Agent가 tool name을 파싱:\n\n"mcp__jira__" 접두사 감지\n→ Jira MCP 서버에 요청 전달\n→ MCP 서버가 실제 Jira REST API 호출\n→ 결과를 Agent에게 반환\n→ Agent가 tool_result로 변환해서 messages[]에 추가'}],
+      insight:'MCP의 실체: Agent가 "mcp__" 접두사를 보고 해당 MCP 서버로 라우팅하는 것. Bash는 로컬 실행, mcp__jira는 MCP 서버로 전달. 이 라우팅은 Agent의 역할이지 LLM의 역할이 아니다.' },
+
+    { turn:5, label:'Skill — 프롬프트 템플릿의 주입' },
+    { arrows:[{from:1,to:2,color:'var(--green)',label:'/commit (skill)'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'스킬 호출'}],text:'"/commit"'}],
+      insight:null },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'skill → 프롬프트 주입'}],
+      cards:[{col:'at-agent',tags:[{t:'t-accent',l:'스킬 확장'}],
+        text:'Agent가 /commit을 감지하고 스킬 파일을 읽어서\nuser message에 프롬프트를 주입:',
+        json:`{ "role": "user", "content":
+  "/commit\\n\\n# Commit Skill\\n1. git status로 변경 파일 확인\\n2. git diff로 변경 내용 확인\\n3. 변경 분석 후 커밋 메시지 작성\\n4. git add 후 git commit\\n\\nCo-Authored-By: Claude..."
+}
+// 스킬 = 미리 작성된 프롬프트 템플릿
+// LLM API에 "스킬" 파라미터는 없다
+// user message 안에 텍스트로 주입될 뿐!`}],
+      insight:'스킬의 정체: 미리 작성된 프롬프트 + 허용 도구 목록. "스킬"이라는 API 파라미터는 존재하지 않는다. Agent가 스킬 파일을 읽어서 user message에 텍스트로 넣는 것이 전부.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: git 명령'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'지시 따름'}],
+        text:'스킬 프롬프트의 순서대로 실행:\n→ Bash("git status")\n→ Bash("git diff")\n→ Bash("git commit -m ...")'}],
+      insight:'LLM은 "스킬을 실행한다"는 의식이 없다. user message에 있는 지시를 따를 뿐. 잘 쓰인 프롬프트가 복잡한 워크플로우를 만든다.' },
+
+    { turn:6, label:'루프 종료 — tool_use가 없는 응답' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'text only (no tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-blue',l:'완료'}],
+        text:'더 이상 호출할 도구가 없다고 판단:',
+        json:`{ "role": "assistant",
+  "content": [{
+    "type": "text",
+    "text": "✅ 할일 API 생성 완료\\n- CRUD 라우터\\n- 입력 검증\\n- 테스트 통과\\n- Jira 업데이트"
   }],
-  insight:'핵심 구조: tool_result는 "user" role로 들어간다! LLM API에 "도구 결과"라는 role은 없다. Agent가 실행 결과를 user 메시지로 끼워넣는 것. LLM은 매번 전체 messages[]를 처음부터 읽는다 (stateless).'
+  "stop_reason": "end_turn"
+}
+// tool_use가 없다 = 더 할 일이 없다
+// Agent는 이걸 보고 루프를 멈춘다`}],
+      insight:'루프 종료 조건: LLM 응답에 tool_use가 없으면 Agent는 루프를 멈추고 텍스트를 사용자에게 보여준다.' },
+    { arrows:[{from:2,to:1,color:'var(--orange)',label:'최종 결과'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'결과 표시'}],
+        text:'사용자가 최종 결과를 본다:\n\n"✅ 할일 API 생성 완료\n- CRUD 라우터\n- 입력 검증\n- 테스트 통과\n- Jira 업데이트"'}],
+      insight:'전체 루프: User→Agent→LLM→Agent(실행)→LLM→Agent(실행)→...→Agent→User. Agent는 "컨텍스트 조립 + 도구 실행 + 루프 관리"를 할 뿐. LLM은 "컨텍스트를 보고 다음 행동을 고르는" 것. Agent Engineering = Context Engineering.' },
+  ]
 },
-{
-  arrows: [{ from:3, to:2, color:'var(--accent)', label:'response (tool_use)' }],
-  cards: [{
-    col:'at-llm', tags:[{t:'t-accent',l:'판단'}],
-    text:'ls 결과를 보고 Express 라우터 생성을 결정:',
-    json:`<span class="jb">{</span>
-  <span class="jk">"content"</span>: <span class="jb">[</span>
-    <span class="jb">{</span> <span class="jk">"type"</span>: <span class="js">"tool_use"</span>,
-      <span class="jk">"name"</span>: <span class="js">"Write"</span>,
-      <span class="jk">"input"</span>: <span class="jb">{</span>
-        <span class="jk">"file_path"</span>: <span class="js">"src/routes/todos.js"</span>,
-        <span class="jk">"content"</span>: <span class="js">"const router = require..."</span>
-      <span class="jb">}</span> <span class="jb">}</span>
-  <span class="jb">]</span>
-<span class="jb">}</span>`
+en: {
+  subtitle: 'User ↔ Agent ↔ LLM — Dissecting the request/response cycle',
+  startHint: 'Press Play to start. See how messages flow between User ↔ Agent ↔ LLM.',
+  conclusion: 'Agent = while(true) { context.assemble() → llm.call() → response.parse() → tool.execute() → context.append(result) }. That\'s all there is. Context Engineering IS Agent Engineering.',
+  turns: [
+    { turn:1, label:'User sends a request' },
+    { arrows:[{from:1,to:2,color:'var(--green)',label:'user message'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'input'}],text:'"Build a todo API"'}],
+      insight:'The user\'s text reaches the Agent. The LLM is not involved yet.' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'API request'}],
+      cards:[{col:'span-agent-llm',tags:[{t:'t-cyan',l:'system'},{t:'t-orange',l:'tools'},{t:'t-accent',l:'skills'},{t:'t-green',l:'user msg'}],
+        text:'Agent assembles all context and sends it to the LLM API:',
+        json:`{
+  "system": "You are Claude Code...\\nRules, constraints, persona\\n\\n## Available Skills\\n- /commit: Git commit workflow\\n- /test: Run test suite\\n...",
+
+  "tools": [
+    { "name": "Bash", "description": "..." },
+    { "name": "Read", ... },
+    { "name": "Write", ... },
+    { "name": "Edit", ... },
+    { "name": "mcp__jira__search", ... }  // ← MCP tools mixed in
+  ],
+
+  "messages": [
+    { "role": "user", "content": "Build a todo API" }
+  ]
+}
+// system: persona + rules + skill list (injected as text)
+// skills are NOT a separate API parameter — just text in system
+// tools: tool definitions the LLM can call
+// messages: conversation history (just 1 on first turn)`}],
+      insight:'The Agent\'s core job: assemble system + tools[] + messages[] and send to the LLM API. Skills are injected as text in system prompt. MCP tools are mixed into tools[]. The LLM doesn\'t know the difference.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'LLM decides'}],
+        text:'LLM decides to check the project structure first:',
+        json:`{
+  "role": "assistant",
+  "content": [
+    { "type": "text",
+      "text": "Let me check the project structure." },
+    { "type": "tool_use",
+      "id": "toolu_01a",
+      "name": "Bash",
+      "input": { "command": "ls -la" } }
+  ]
+}
+// tool_use = "please run this tool with these args"
+// The LLM only outputs JSON — it can't execute anything`}],
+      insight:'The LLM sees tools[] and knows "I can use Bash." A tool_use is an execution request, not execution itself. The LLM only outputs JSON.' },
+    { arrows:[],
+      cards:[{col:'at-agent',tags:[{t:'t-orange',l:'execute'}],text:'Agent parses tool_use and actually executes:\n\n$ ls -la\npackage.json\nnode_modules/\nsrc/\n  app.js\n  routes/\ntests/'}],
+      insight:'Agent\'s second role: detect tool_use in LLM response, execute it, collect results.' },
+
+    { turn:2, label:'Agent returns result to LLM' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'tool_result + re-request'}],
+      cards:[{col:'span-agent-llm',tags:[{t:'t-orange',l:'tool_result'},{t:'t-red',l:'history grows'}],
+        text:'Agent appends execution result to messages[] and calls LLM again:',
+        json:`"messages": [
+  // 1. Original user message
+  { "role": "user",
+    "content": "Build a todo API" },
+
+  // 2. Previous LLM response (preserved)
+  { "role": "assistant",
+    "content": [..text, ..tool_use] },
+
+  // 3. ★ Tool result (as user role!)
+  { "role": "user",
+    "content": [{
+      "type": "tool_result",
+      "tool_use_id": "toolu_01a",
+      "content": "package.json\\nsrc/\\n  app.js..."
+    }] }
+]
+// tool_result is "user" role because:
+// The LLM API only has user/assistant roles.
+// Agent injects the result as if "the user told me."`}],
+      insight:'Key structure: tool_result goes in as "user" role! There is no "tool result" role in the LLM API. The Agent injects execution results as user messages. The LLM re-reads the entire messages[] from scratch every time (stateless).' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'decides'}],
+        text:'Sees ls result, decides to create Express router:',
+        json:`{
+  "content": [
+    { "type": "tool_use",
+      "name": "Write",
+      "input": {
+        "file_path": "src/routes/todos.js",
+        "content": "const router = require..."
+      } }
+  ]
+}`}],
+      insight:'The LLM saw "src/routes/ exists" in history and decided to create a file there. Previous results inform the next decision.' },
+    { arrows:[],
+      cards:[{col:'at-agent',tags:[{t:'t-orange',l:'execute'}],text:'Agent executes Write tool:\n→ src/routes/todos.js created'}],
+      insight:null },
+
+    { turn:3, label:'Test → Failure → Self-correction' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'result + re-request'}],
+      cards:[{col:'at-agent',tags:[{t:'t-orange',l:'context assembly'}],
+        text:'messages[] keeps growing:\n\n[user] "Build a todo API"\n[assistant] tool_use: Bash(ls)\n[user] tool_result: directory listing\n[assistant] tool_use: Write(todos.js)\n[user] tool_result: file created\n← All of this sent to LLM every time'}],
+      insight:'The LLM is stateless — it reads the entire conversation from scratch every call. There is no "memory," only what\'s in messages[]. When it gets too long, the Agent summarizes/truncates old messages.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Bash'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'decides'}],
+        text:'Code written, now run tests:',
+        json:`{ "name": "Bash",
+  "input": { "command": "npm test" } }
+// system prompt: "always run tests after writing code"
+// Without this instruction, it might not test at all!`}],
+      insight:'The "run tests" instruction in System Prompt created this behavior. System Prompt = the LLM\'s habits and principles.' },
+    { arrows:[{from:2,to:3,color:'var(--red)',label:'test failure'}],
+      cards:[{col:'at-agent',tags:[{t:'t-red',l:'failure'}],
+        text:'Agent sends test results as tool_result:\n\n✓ GET /todos\n✓ POST /todos\n✗ GET /todos/:id → missing 404\n\n→ This error log goes directly to the LLM'}],
+      insight:'The secret of "self-correction": error logs are in the context, so the LLM can reason about the cause. Without the Agent feeding results back, the LLM wouldn\'t even know tests failed.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Edit (fix)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'self-correction'}],
+        text:'Analyzes failure and applies fix:',
+        json:`{ "name": "Edit", "input": {
+  "file_path": "src/routes/todos.js",
+  "old_string": "const todo = todos[id];",
+  "new_string": "const todo = todos[id];\\nif (!todo) return res.status(404)..."
+} }
+// error message → cause analysis → fix
+// All from information in the context`}],
+      insight:'The LLM fixed the bug not because it\'s "smart" — but because the error log + source code were both in context.' },
+
+    { turn:4, label:'MCP — External system integration' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: mcp__jira'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'decides'}],
+        text:'After tests pass, decides to update Jira:',
+        json:`{ "name": "mcp__jira__transition_issue",
+  "input": {
+    "issue_key": "CLIP-123",
+    "transition": "Done"
+  } }
+// The LLM doesn't know this is MCP
+// It just picked a tool from tools[]`}],
+      insight:'From the LLM\'s perspective, Bash and mcp__jira are the same kind of "tool." MCP is a protocol the Agent uses to fetch tool definitions from external servers. The LLM doesn\'t know MCP exists.' },
+    { arrows:[],
+      cards:[{col:'at-agent',tags:[{t:'t-pink',l:'MCP routing'}],
+        text:'Agent parses the tool name:\n\n"mcp__jira__" prefix detected\n→ Forward request to Jira MCP server\n→ MCP server calls actual Jira REST API\n→ Returns result to Agent\n→ Agent converts to tool_result in messages[]'}],
+      insight:'MCP in reality: Agent sees the "mcp__" prefix and routes to the corresponding MCP server. Bash runs locally, mcp__jira goes to the MCP server. This routing is the Agent\'s job, not the LLM\'s.' },
+
+    { turn:5, label:'Skill — Prompt template injection' },
+    { arrows:[{from:1,to:2,color:'var(--green)',label:'/commit (skill)'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'skill call'}],text:'"/commit"'}],
+      insight:null },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'skill → prompt injection'}],
+      cards:[{col:'at-agent',tags:[{t:'t-accent',l:'skill expansion'}],
+        text:'Agent detects /commit, reads the skill file,\nand injects the prompt into user message:',
+        json:`{ "role": "user", "content":
+  "/commit\\n\\n# Commit Skill\\n1. Check changes with git status\\n2. Review diff with git diff\\n3. Analyze and write commit message\\n4. git add and git commit\\n\\nCo-Authored-By: Claude..."
+}
+// Skill = pre-written prompt template
+// There is NO "skill" parameter in the LLM API
+// It's just text injected into the user message!`}],
+      insight:'What a skill really is: a pre-written prompt + allowed tool list. There is no "skill" API parameter. The Agent reads a skill file and injects text into the user message. That\'s all.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: git commands'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'follows instructions'}],
+        text:'Executes in the order given by the skill prompt:\n→ Bash("git status")\n→ Bash("git diff")\n→ Bash("git commit -m ...")'}],
+      insight:'The LLM has no concept of "running a skill." It simply follows instructions in the user message. Well-written prompts create complex workflows.' },
+
+    { turn:6, label:'Loop ends — response without tool_use' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'text only (no tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-blue',l:'done'}],
+        text:'Decides there are no more tools to call:',
+        json:`{ "role": "assistant",
+  "content": [{
+    "type": "text",
+    "text": "✅ Todo API complete\\n- CRUD router\\n- Input validation\\n- Tests passing\\n- Jira updated"
   }],
-  insight:'LLM은 "src/routes/ 디렉토리가 있다"를 history에서 확인하고 거기에 파일을 만들기로 했다. 이전 턴의 결과가 다음 판단의 근거.'
+  "stop_reason": "end_turn"
+}
+// No tool_use = nothing left to do
+// Agent sees this and stops the loop`}],
+      insight:'Loop termination: when LLM response has no tool_use, the Agent stops the loop and shows the text to the user.' },
+    { arrows:[{from:2,to:1,color:'var(--orange)',label:'final result'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'result'}],
+        text:'User sees the final result:\n\n"✅ Todo API complete\n- CRUD router\n- Input validation\n- Tests passing\n- Jira updated"'}],
+      insight:'Full loop: User→Agent→LLM→Agent(exec)→LLM→Agent(exec)→...→Agent→User. The Agent does "context assembly + tool execution + loop management." The LLM does "look at context, pick next action." Agent Engineering = Context Engineering.' },
+  ]
 },
-{
-  arrows: [],
-  cards: [{
-    col:'at-agent', tags:[{t:'t-orange',l:'실행'}],
-    text:'Agent가 Write 도구 실행:\n→ src/routes/todos.js 파일 생성 완료',
-  }],
-  insight:null
+zh: {
+  subtitle: 'User ↔ Agent ↔ LLM — 解剖 request/response 循环',
+  startHint: '点击 Play 开始。观察 User ↔ Agent ↔ LLM 之间消息如何传递。',
+  conclusion: 'Agent = while(true) { context.assemble() → llm.call() → response.parse() → tool.execute() → context.append(result) }。这就是全部。Context Engineering 就是 Agent Engineering。',
+  turns: [
+    { turn:1, label:'用户发送请求' },
+    { arrows:[{from:1,to:2,color:'var(--green)',label:'user message'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'输入'}],text:'"创建一个待办 API"'}],
+      insight:'用户的文本传递给 Agent。LLM 还未参与。' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'API request'}],
+      cards:[{col:'span-agent-llm',tags:[{t:'t-cyan',l:'system'},{t:'t-orange',l:'tools'},{t:'t-accent',l:'skills'},{t:'t-green',l:'user msg'}],
+        text:'Agent 组装所有上下文发送给 LLM API:',
+        json:`{
+  "system": "You are Claude Code...\\n规则、约束、人设\\n\\n## Available Skills\\n- /commit: Git 提交流程\\n- /test: 运行测试\\n...",
+
+  "tools": [
+    { "name": "Bash", "description": "..." },
+    { "name": "Read", ... },
+    { "name": "mcp__jira__search", ... }  // ← MCP 工具混在这里
+  ],
+
+  "messages": [
+    { "role": "user", "content": "创建一个待办 API" }
+  ]
+}
+// system: 人设 + 规则 + 技能列表（作为文本注入）
+// skills 不是独立的 API 参数，只是 system 中的文本
+// tools: LLM 可以调用的工具定义`}],
+      insight:'Agent 的核心工作：组装 system + tools[] + messages[] 发送给 LLM API。Skills 作为文本注入 system prompt，MCP 工具混入 tools[]。LLM 不知道区别。' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'LLM 决策'}],
+        text:'LLM 决定先检查项目结构:',
+        json:`{
+  "role": "assistant",
+  "content": [
+    { "type": "text", "text": "让我检查项目结构。" },
+    { "type": "tool_use", "name": "Bash",
+      "input": { "command": "ls -la" } }
+  ]
+}
+// tool_use = "请用这些参数运行此工具"
+// LLM 只输出 JSON，无法执行任何操作`}],
+      insight:'LLM 看到 tools[] 知道 "我可以用 Bash"。tool_use 是执行请求而非执行本身。' },
+    { arrows:[],
+      cards:[{col:'at-agent',tags:[{t:'t-orange',l:'执行'}],text:'Agent 解析 tool_use 并实际执行：\n\n$ ls -la\npackage.json\nsrc/\n  app.js\n  routes/'}],
+      insight:'Agent 的第二个角色：检测到 tool_use 就执行，收集结果。' },
+
+    { turn:2, label:'Agent 将结果返回给 LLM' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'tool_result + 重新请求'}],
+      cards:[{col:'span-agent-llm',tags:[{t:'t-orange',l:'tool_result'},{t:'t-red',l:'历史累积'}],
+        text:'Agent 将执行结果添加到 messages[] 并再次调用 LLM:',
+        json:`"messages": [
+  { "role": "user", "content": "创建一个待办 API" },
+  { "role": "assistant", "content": [..tool_use] },
+  // ★ 工具结果（user 角色！）
+  { "role": "user",
+    "content": [{
+      "type": "tool_result",
+      "tool_use_id": "toolu_01a",
+      "content": "package.json\\nsrc/..."
+    }] }
+]
+// tool_result 是 "user" 角色！
+// LLM API 只有 user/assistant，没有 "tool" 角色`}],
+      insight:'关键结构：tool_result 以 "user" 角色进入！LLM API 没有 "工具结果" 角色。Agent 将结果伪装为用户消息。LLM 每次从头读取整个 messages[]（无状态）。' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'决策'}],text:'看到 ls 结果，决定创建 Express 路由:',
+        json:`{ "content": [{ "type": "tool_use", "name": "Write",
+  "input": { "file_path": "src/routes/todos.js", "content": "..." } }] }`}],
+      insight:'LLM 从 history 确认 "src/routes/ 存在"，决定在那里创建文件。' },
+    { arrows:[], cards:[{col:'at-agent',tags:[{t:'t-orange',l:'执行'}],text:'Agent 执行 Write：\n→ src/routes/todos.js 已创建'}], insight:null },
+
+    { turn:3, label:'测试 → 失败 → 自我修正' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'result + 重新请求'}],
+      cards:[{col:'at-agent',tags:[{t:'t-orange',l:'上下文组装'}],text:'messages[] 越来越长：\n← 每次都将全部发送给 LLM'}],
+      insight:'LLM 无状态——每次调用都从头读取整个对话。超出 context window 时 Agent 会总结/删除旧消息。' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Bash'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'决策'}],text:'代码写完，运行测试:',
+        json:`{ "name": "Bash", "input": { "command": "npm test" } }
+// system prompt: "写完代码后必须测试"`}],
+      insight:'System Prompt 的 "测试" 指令创建了这个行为。' },
+    { arrows:[{from:2,to:3,color:'var(--red)',label:'test failure'}],
+      cards:[{col:'at-agent',tags:[{t:'t-red',l:'失败'}],text:'✓ GET /todos\n✓ POST /todos\n✗ GET /todos/:id → 缺少 404\n\n→ 错误日志直接发给 LLM'}],
+      insight:'"自我修正"的秘密：错误日志在上下文中，所以 LLM 能推断原因。' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Edit'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'自我修正'}],text:'分析失败并修复:',
+        json:`{ "name": "Edit", "input": {
+  "old_string": "const todo = todos[id];",
+  "new_string": "...if (!todo) return res.status(404)..."
+} }`}],
+      insight:'LLM 修复 bug 不是因为 "聪明"，而是错误日志 + 源代码都在上下文中。' },
+
+    { turn:4, label:'MCP — 外部系统集成' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: mcp__jira'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'决策'}],text:'测试通过，更新 Jira:',
+        json:`{ "name": "mcp__jira__transition_issue",
+  "input": { "issue_key": "CLIP-123", "transition": "Done" } }
+// LLM 不知道这是 MCP`}],
+      insight:'对 LLM 来说 Bash 和 mcp__jira 都是 "工具"。MCP 是 Agent 从外部服务器获取工具的协议。' },
+    { arrows:[], cards:[{col:'at-agent',tags:[{t:'t-pink',l:'MCP 路由'}],
+        text:'Agent 解析工具名：\n"mcp__jira__" 前缀\n→ 转发给 Jira MCP 服务器\n→ 服务器调用 Jira API\n→ 结果转为 tool_result'}],
+      insight:'MCP 的实质：Agent 根据前缀路由请求。' },
+
+    { turn:5, label:'Skill — 提示模板注入' },
+    { arrows:[{from:1,to:2,color:'var(--green)',label:'/commit (skill)'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'技能调用'}],text:'"/commit"'}], insight:null },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'skill → prompt'}],
+      cards:[{col:'at-agent',tags:[{t:'t-accent',l:'技能展开'}],text:'Agent 将 /commit 技能文件内容注入 user message:',
+        json:`{ "role": "user", "content": "/commit\\n# Commit Skill\\n1. git status\\n2. git diff\\n3. 分析并写提交信息\\n..." }
+// 技能 = 预写的提示模板
+// API 中没有 "skill" 参数`}],
+      insight:'技能的本质：预写的提示 + 允许的工具列表。没有 "skill" API 参数。' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: git'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'遵循指令'}],text:'按技能提示顺序执行：\n→ git status → git diff → git commit'}],
+      insight:'LLM 不知道 "技能"。只是遵循 user message 中的指令。' },
+
+    { turn:6, label:'循环结束 — 无 tool_use 的响应' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'text only'}],
+      cards:[{col:'at-llm',tags:[{t:'t-blue',l:'完成'}],text:'没有更多工具可调用:',
+        json:`{ "stop_reason": "end_turn" }
+// 无 tool_use = 没有更多要做的
+// Agent 看到后停止循环`}],
+      insight:'循环终止：LLM 响应无 tool_use 时，Agent 停止循环并向用户展示文本。' },
+    { arrows:[{from:2,to:1,color:'var(--orange)',label:'最终结果'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'结果'}],text:'"✅ 待办 API 完成"'}],
+      insight:'完整循环：User→Agent→LLM→Agent(执行)→...→Agent→User。Agent Engineering = Context Engineering。' },
+  ]
 },
-// ── TURN 3 ──
-{ turn: 3, label: '테스트 실행 → 실패 → 자가 수정' },
-{
-  arrows: [{ from:2, to:3, color:'var(--orange)', label:'result + 재요청' }],
-  cards: [{
-    col:'at-agent', tags:[{t:'t-orange',l:'context 조립'}],
-    text:'messages[]가 점점 길어진다:\n\n[user] "할일 API 만들어줘"\n[assistant] tool_use: Bash(ls)\n[user] tool_result: 디렉토리 목록\n[assistant] tool_use: Write(todos.js)\n[user] tool_result: 파일 생성 완료\n← 매번 이 전부를 LLM에게 보낸다',
-  }],
-  insight:'LLM은 stateless — 매 호출마다 전체 대화를 처음부터 다시 읽는다. "기억"이란 없고, messages[]에 있는 것이 전부다. 대화가 길어지면 context window를 넘기므로 Agent가 오래된 메시지를 요약/삭제한다.'
+ja: {
+  subtitle: 'User ↔ Agent ↔ LLM — request/response サイクルを解剖する',
+  startHint: 'Play を押して開始。User ↔ Agent ↔ LLM 間のメッセージの流れを観察できます。',
+  conclusion: 'Agent = while(true) { context.assemble() → llm.call() → response.parse() → tool.execute() → context.append(result) }。これが全て。Context Engineering こそが Agent Engineering。',
+  turns: [
+    { turn:1, label:'ユーザーがリクエストを送る' },
+    { arrows:[{from:1,to:2,color:'var(--green)',label:'user message'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'入力'}],text:'"Todo API を作って"'}],
+      insight:'ユーザーのテキストが Agent に渡る。LLM はまだ関与していない。' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'API request'}],
+      cards:[{col:'span-agent-llm',tags:[{t:'t-cyan',l:'system'},{t:'t-orange',l:'tools'},{t:'t-accent',l:'skills'},{t:'t-green',l:'user msg'}],
+        text:'Agent が全コンテキストを組み立てて LLM API に送信:',
+        json:`{
+  "system": "You are Claude Code...\\nルール、制約、ペルソナ\\n\\n## Available Skills\\n- /commit: Git コミット\\n- /test: テスト実行\\n...",
+
+  "tools": [
+    { "name": "Bash", ... },
+    { "name": "mcp__jira__search", ... }  // ← MCP ツールも混在
+  ],
+
+  "messages": [
+    { "role": "user", "content": "Todo API を作って" }
+  ]
+}
+// system: ペルソナ + ルール + スキル一覧（テキストとして注入）
+// skills は独立した API パラメータではない
+// tools: LLM が呼び出せるツール定義`}],
+      insight:'Agent の核心: system + tools[] + messages[] を組み立てて LLM API に送る。スキルは system にテキストとして、MCP ツールは tools[] に混ざって入る。LLM はこの区別を知らない。' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'LLM 判断'}],text:'プロジェクト構造を確認することに:',
+        json:`{ "type": "tool_use", "name": "Bash",
+  "input": { "command": "ls -la" } }
+// tool_use = "このツールをこの引数で実行して"
+// LLM は JSON を出力するだけ`}],
+      insight:'LLM は tools[] を見て "Bash が使える" と知る。tool_use は実行リクエストであり、実行そのものではない。' },
+    { arrows:[], cards:[{col:'at-agent',tags:[{t:'t-orange',l:'実行'}],text:'Agent が tool_use をパースして実際に実行:\n\n$ ls -la\npackage.json\nsrc/...'}],
+      insight:'Agent の第2の役割: tool_use を検出→実行→結果収集。' },
+
+    { turn:2, label:'Agent が結果を LLM に返す' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'tool_result + 再リクエスト'}],
+      cards:[{col:'span-agent-llm',tags:[{t:'t-orange',l:'tool_result'},{t:'t-red',l:'履歴蓄積'}],
+        text:'Agent が実行結果を messages[] に追加して再度 LLM を呼び出す:',
+        json:`"messages": [
+  { "role": "user", "content": "Todo API を作って" },
+  { "role": "assistant", "content": [..tool_use] },
+  // ★ ツール結果（user ロール！）
+  { "role": "user", "content": [{
+    "type": "tool_result",
+    "content": "package.json\\nsrc/..."
+  }] }
+]
+// tool_result が "user" ロールである理由:
+// LLM API には user/assistant しかない`}],
+      insight:'重要: tool_result は "user" ロールで入る！LLM は毎回 messages[] 全体を最初から読む（ステートレス）。' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'判断'}],text:'ls 結果を見て Express ルーター作成を決定:',
+        json:`{ "name": "Write", "input": {
+  "file_path": "src/routes/todos.js", "content": "..." } }`}],
+      insight:'前のターンの結果が次の判断の根拠になる。' },
+    { arrows:[], cards:[{col:'at-agent',tags:[{t:'t-orange',l:'実行'}],text:'Agent が Write 実行:\n→ todos.js 作成完了'}], insight:null },
+
+    { turn:3, label:'テスト → 失敗 → 自己修正' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'result + 再リクエスト'}],
+      cards:[{col:'at-agent',tags:[{t:'t-orange',l:'コンテキスト組立'}],text:'messages[] が長くなる:\n← 毎回全てを LLM に送る'}],
+      insight:'LLM はステートレス — 毎回全対話を最初から読む。' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Bash'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'判断'}],text:'コードを書いたのでテスト実行:',
+        json:`{ "name": "Bash", "input": { "command": "npm test" } }
+// system prompt: "コード作成後は必ずテスト"`}],
+      insight:'System Prompt の「テストを実行せよ」指示がこの行動を生んだ。' },
+    { arrows:[{from:2,to:3,color:'var(--red)',label:'test failure'}],
+      cards:[{col:'at-agent',tags:[{t:'t-red',l:'失敗'}],text:'✓ GET /todos\n✗ GET /todos/:id → 404 処理漏れ'}],
+      insight:'「自己修正」の秘密: エラーログがコンテキストにあるから。' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Edit'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'自己修正'}],text:'失敗原因を分析し修正:',
+        json:`{ "name": "Edit", "input": {
+  "old_string": "const todo = todos[id];",
+  "new_string": "...if (!todo) return res.status(404)..." } }`}],
+      insight:'LLM がバグを直せたのはエラーログ + ソースコードがコンテキストにあったから。' },
+
+    { turn:4, label:'MCP — 外部システム連携' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: mcp__jira'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'判断'}],text:'テスト通過後、Jira を更新:',
+        json:`{ "name": "mcp__jira__transition_issue",
+  "input": { "issue_key": "CLIP-123", "transition": "Done" } }
+// LLM はこれが MCP だと知らない`}],
+      insight:'LLM にとって Bash も mcp__jira も同じ「ツール」。MCP は Agent がツール定義を外部サーバーから取得するプロトコル。' },
+    { arrows:[], cards:[{col:'at-agent',tags:[{t:'t-pink',l:'MCP ルーティング'}],
+        text:'Agent がツール名をパース:\n"mcp__jira__" プレフィクス検出\n→ Jira MCP サーバーに転送\n→ 結果を tool_result に変換'}],
+      insight:'MCP の実態: Agent がプレフィクスでリクエストをルーティングする。' },
+
+    { turn:5, label:'Skill — プロンプトテンプレートの注入' },
+    { arrows:[{from:1,to:2,color:'var(--green)',label:'/commit (skill)'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'スキル呼出'}],text:'"/commit"'}], insight:null },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'skill → prompt'}],
+      cards:[{col:'at-agent',tags:[{t:'t-accent',l:'スキル展開'}],text:'Agent が /commit スキルファイルを読み込み\nuser message にプロンプトを注入:',
+        json:`{ "role": "user", "content": "/commit\\n# Commit Skill\\n1. git status\\n2. git diff\\n3. コミットメッセージ作成\\n..." }
+// スキル = 事前に書かれたプロンプトテンプレート
+// API に "skill" パラメータはない`}],
+      insight:'スキルの正体: 事前作成プロンプト + 許可ツールリスト。"skill" API パラメータは存在しない。' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: git'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'指示に従う'}],text:'スキルプロンプトの順序で実行:\n→ git status → git diff → git commit'}],
+      insight:'LLM は「スキルを実行する」意識がない。user message の指示に従うだけ。' },
+
+    { turn:6, label:'ループ終了 — tool_use なしの応答' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'text only'}],
+      cards:[{col:'at-llm',tags:[{t:'t-blue',l:'完了'}],text:'呼び出すツールがないと判断:',
+        json:`{ "stop_reason": "end_turn" }
+// tool_use なし = もうやることがない`}],
+      insight:'ループ終了条件: tool_use がなければ Agent はループを停止。' },
+    { arrows:[{from:2,to:1,color:'var(--orange)',label:'最終結果'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'結果'}],text:'"✅ Todo API 完成"'}],
+      insight:'Agent Engineering = Context Engineering。' },
+  ]
 },
-{
-  arrows: [{ from:3, to:2, color:'var(--accent)', label:'tool_use: Bash' }],
-  cards: [{
-    col:'at-llm', tags:[{t:'t-accent',l:'판단'}],
-    text:'코드를 작성했으니 테스트 실행:',
-    json:`<span class="jb">{</span> <span class="jk">"name"</span>: <span class="js">"Bash"</span>,
-  <span class="jk">"input"</span>: <span class="jb">{</span> <span class="jk">"command"</span>: <span class="js">"npm test"</span> <span class="jb">}</span> <span class="jb">}</span>
-<span class="jc">// system prompt: "코드 작성 후 반드시 테스트"</span>
-<span class="jc">// 이 지침이 없으면 테스트 안 했을 수도!</span>`
-  }],
-  insight:'System Prompt의 "테스트를 돌려라" 지침이 이 행동을 만들었다. 시스템 프롬프트 = LLM의 습관과 원칙.'
-},
-{
-  arrows: [{ from:2, to:3, color:'var(--red)', label:'test failure' }],
-  cards: [{
-    col:'at-agent', tags:[{t:'t-red',l:'실패 결과'}],
-    text:'Agent가 테스트 결과를 tool_result로 전달:\n\n✓ GET /todos\n✓ POST /todos\n✗ GET /todos/:id → 404 처리 누락\n\n→ 이 에러 로그가 그대로 LLM에게 간다',
-  }],
-  insight:'"자가 수정"의 비밀: 에러 로그가 context에 있으니까 LLM이 원인을 추론할 수 있는 것. Agent가 결과를 넣어주지 않았다면 LLM은 실패 사실조차 모른다.'
-},
-{
-  arrows: [{ from:3, to:2, color:'var(--accent)', label:'tool_use: Edit (수정)' }],
-  cards: [{
-    col:'at-llm', tags:[{t:'t-accent',l:'자가 수정'}],
-    text:'실패 원인을 분석하고 수정:',
-    json:`<span class="jb">{</span> <span class="jk">"name"</span>: <span class="js">"Edit"</span>, <span class="jk">"input"</span>: <span class="jb">{</span>
-  <span class="jk">"file_path"</span>: <span class="js">"src/routes/todos.js"</span>,
-  <span class="jk">"old_string"</span>: <span class="js">"const todo = todos[id];"</span>,
-  <span class="jk">"new_string"</span>: <span class="js">"const todo = todos[id];\\nif (!todo) return res.status(404)..."</span>
-<span class="jb">}</span> <span class="jb">}</span>
-<span class="jc">// 에러 메시지 → 원인 추론 → 수정 코드 생성</span>
-<span class="jc">// 전부 context 안의 정보로만 한 것</span>`
-  }],
-  insight:'LLM이 버그를 고친 건 "똑똑해서"가 아니라 에러 로그 + 원본 코드가 context에 있었기 때문이다.'
-},
-// ── TURN 4 ──
-{ turn: 4, label: 'MCP — 외부 시스템 연동' },
-{
-  arrows: [{ from:3, to:2, color:'var(--accent)', label:'tool_use: mcp__jira' }],
-  cards: [{
-    col:'at-llm', tags:[{t:'t-accent',l:'판단'}],
-    text:'테스트 통과 후 Jira 업데이트를 결정:',
-    json:`<span class="jb">{</span> <span class="jk">"name"</span>: <span class="js">"mcp__jira__transition_issue"</span>,
-  <span class="jk">"input"</span>: <span class="jb">{</span>
-    <span class="jk">"issue_key"</span>: <span class="js">"CLIP-123"</span>,
-    <span class="jk">"transition"</span>: <span class="js">"Done"</span>
-  <span class="jb">}</span> <span class="jb">}</span>
-<span class="jc">// LLM은 이게 MCP인지 모른다</span>
-<span class="jc">// 그냥 tools[]에 있는 도구를 골랐을 뿐</span>`
-  }],
-  insight:'LLM 입장에서 Bash든 mcp__jira든 동일한 "도구"다. MCP는 Agent가 외부 서버에서 도구를 가져오는 프로토콜일 뿐, LLM은 MCP의 존재를 모른다.'
-},
-{
-  arrows: [],
-  cards: [{
-    col:'at-agent', tags:[{t:'t-pink',l:'MCP 라우팅'}],
-    text:'Agent가 tool name을 파싱:\n\n"mcp__jira__" 접두사 감지\n→ Jira MCP 서버에 요청 전달\n→ MCP 서버가 실제 Jira REST API 호출\n→ 결과를 Agent에게 반환\n→ Agent가 tool_result로 변환해서 messages[]에 추가',
-  }],
-  insight:'MCP의 실체: Agent가 "mcp__" 접두사를 보고 해당 MCP 서버로 라우팅하는 것. Bash는 로컬 실행, mcp__jira는 MCP 서버로 전달. 이 라우팅은 Agent의 역할이지 LLM의 역할이 아니다.'
-},
-// ── TURN 5 ──
-{ turn: 5, label: 'Skill — 프롬프트 템플릿의 주입' },
-{
-  arrows: [{ from:1, to:2, color:'var(--green)', label:'/commit (skill)' }],
-  cards: [{
-    col:'at-user', tags:[{t:'t-green',l:'스킬 호출'}],
-    text:'"/commit"',
-  }],
-  insight:null
-},
-{
-  arrows: [{ from:2, to:3, color:'var(--orange)', label:'skill → 프롬프트 주입' }],
-  cards: [{
-    col:'at-agent', tags:[{t:'t-accent',l:'스킬 확장'}],
-    text:'Agent가 /commit을 감지하고 스킬 파일을 읽어서\nuser message에 프롬프트를 주입:',
-    json:`<span class="jb">{</span> <span class="jk">"role"</span>: <span class="js">"user"</span>, <span class="jk">"content"</span>:
-  <span class="js">"/commit\\n\\n# Commit Skill\\n1. git status로 변경 파일 확인\\n2. git diff로 변경 내용 확인\\n3. 변경 분석 후 커밋 메시지 작성\\n4. git add 후 git commit\\n\\nCo-Authored-By: Claude..."</span>
-<span class="jb">}</span>
-<span class="jc">// 스킬 = 미리 작성된 프롬프트 템플릿</span>
-<span class="jc">// LLM API에 "스킬" 파라미터는 없다</span>
-<span class="jc">// user message 안에 텍스트로 주입될 뿐!</span>`
-  }],
-  insight:'스킬의 정체: 미리 작성된 프롬프트 + 허용 도구 목록. "스킬"이라는 API 파라미터는 존재하지 않는다. Agent가 스킬 파일을 읽어서 user message에 텍스트로 넣는 것이 전부.'
-},
-{
-  arrows: [{ from:3, to:2, color:'var(--accent)', label:'tool_use: git 명령' }],
-  cards: [{
-    col:'at-llm', tags:[{t:'t-accent',l:'지시 따름'}],
-    text:'스킬 프롬프트의 순서대로 실행:\n→ Bash("git status")\n→ Bash("git diff")\n→ Bash("git commit -m ...")',
-  }],
-  insight:'LLM은 "스킬을 실행한다"는 의식이 없다. user message에 있는 지시를 따를 뿐. 잘 쓰인 프롬프트가 복잡한 워크플로우를 만든다.'
-},
-// ── TURN 6: CONCLUSION ──
-{ turn: 6, label: '루프 종료 — tool_use가 없는 응답' },
-{
-  arrows: [{ from:3, to:2, color:'var(--accent)', label:'text only (no tool_use)' }],
-  cards: [{
-    col:'at-llm', tags:[{t:'t-blue',l:'완료'}],
-    text:'더 이상 호출할 도구가 없다고 판단:',
-    json:`<span class="jb">{</span> <span class="jk">"role"</span>: <span class="js">"assistant"</span>,
-  <span class="jk">"content"</span>: <span class="jb">[{</span>
-    <span class="jk">"type"</span>: <span class="js">"text"</span>,
-    <span class="jk">"text"</span>: <span class="js">"✅ 할일 API 생성 완료\\n- CRUD 라우터\\n- 입력 검증\\n- 테스트 통과\\n- Jira 업데이트"</span>
-  <span class="jb">}]</span>,
-  <span class="jk">"stop_reason"</span>: <span class="js">"end_turn"</span>
-<span class="jb">}</span>
-<span class="jc">// tool_use가 없다 = 더 할 일이 없다</span>
-<span class="jc">// Agent는 이걸 보고 루프를 멈춘다</span>`
-  }],
-  insight:'루프 종료 조건: LLM 응답에 tool_use가 없으면 Agent는 루프를 멈추고 텍스트를 사용자에게 보여준다.'
-},
-{
-  arrows: [{ from:2, to:1, color:'var(--orange)', label:'최종 결과' }],
-  cards: [{
-    col:'at-user', tags:[{t:'t-green',l:'결과 표시'}],
-    text:'사용자가 최종 결과를 본다:\n\n"✅ 할일 API 생성 완료\n- CRUD 라우터\n- 입력 검증\n- 테스트 통과\n- Jira 업데이트"',
-  }],
-  insight:'전체 루프: User→Agent→LLM→Agent(실행)→LLM→Agent(실행)→...→Agent→User. Agent는 "컨텍스트 조립 + 도구 실행 + 루프 관리"를 할 뿐. LLM은 "컨텍스트를 보고 다음 행동을 고르는" 것. Agent Engineering = Context Engineering.'
-},
-];
+es: {
+  subtitle: 'User ↔ Agent ↔ LLM — Diseccionando el ciclo request/response',
+  startHint: 'Presiona Play para comenzar. Observa cómo fluyen los mensajes entre User ↔ Agent ↔ LLM.',
+  conclusion: 'Agent = while(true) { context.assemble() → llm.call() → response.parse() → tool.execute() → context.append(result) }. Eso es todo. Context Engineering ES Agent Engineering.',
+  turns: [
+    { turn:1, label:'El usuario envía una solicitud' },
+    { arrows:[{from:1,to:2,color:'var(--green)',label:'user message'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'entrada'}],text:'"Crea una API de tareas"'}],
+      insight:'El texto del usuario llega al Agent. El LLM aún no participa.' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'API request'}],
+      cards:[{col:'span-agent-llm',tags:[{t:'t-cyan',l:'system'},{t:'t-orange',l:'tools'},{t:'t-accent',l:'skills'},{t:'t-green',l:'user msg'}],
+        text:'Agent ensambla todo el contexto y lo envía a la API del LLM:',
+        json:`{
+  "system": "You are Claude Code...\\nReglas, restricciones\\n\\n## Available Skills\\n- /commit: Flujo de commit\\n- /test: Ejecutar tests\\n...",
+
+  "tools": [
+    { "name": "Bash", ... },
+    { "name": "mcp__jira__search", ... }  // ← Herramientas MCP mezcladas
+  ],
+
+  "messages": [
+    { "role": "user", "content": "Crea una API de tareas" }
+  ]
+}
+// system: persona + reglas + lista de skills (inyectado como texto)
+// skills NO es un parámetro API separado
+// tools: definiciones de herramientas que el LLM puede llamar`}],
+      insight:'Rol central del Agent: ensamblar system + tools[] + messages[] y enviar a la API del LLM. Los skills se inyectan como texto en system, las herramientas MCP se mezclan en tools[].' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'LLM decide'}],text:'LLM decide verificar la estructura del proyecto:',
+        json:`{ "type": "tool_use", "name": "Bash",
+  "input": { "command": "ls -la" } }
+// tool_use = "ejecuta esta herramienta con estos args"
+// El LLM solo produce JSON`}],
+      insight:'El LLM ve tools[] y sabe "puedo usar Bash." Un tool_use es una solicitud, no ejecución.' },
+    { arrows:[], cards:[{col:'at-agent',tags:[{t:'t-orange',l:'ejecutar'}],text:'Agent parsea tool_use y ejecuta:\n\n$ ls -la\npackage.json\nsrc/...'}],
+      insight:'Segundo rol del Agent: detectar tool_use, ejecutar, recopilar resultados.' },
+
+    { turn:2, label:'Agent devuelve resultado al LLM' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'tool_result + re-solicitud'}],
+      cards:[{col:'span-agent-llm',tags:[{t:'t-orange',l:'tool_result'},{t:'t-red',l:'historial crece'}],
+        text:'Agent agrega resultado a messages[] y llama al LLM de nuevo:',
+        json:`"messages": [
+  { "role": "user", "content": "Crea una API de tareas" },
+  { "role": "assistant", "content": [..tool_use] },
+  // ★ Resultado (¡como rol user!)
+  { "role": "user", "content": [{
+    "type": "tool_result",
+    "content": "package.json\\nsrc/..."
+  }] }
+]
+// tool_result es rol "user" porque
+// la API solo tiene user/assistant`}],
+      insight:'Estructura clave: tool_result entra como rol "user". El LLM relee todo messages[] desde cero cada vez (sin estado).' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'decide'}],text:'Ve resultado de ls, decide crear router:',
+        json:`{ "name": "Write", "input": {
+  "file_path": "src/routes/todos.js", "content": "..." } }`}],
+      insight:'El resultado del turno anterior es la base de la siguiente decisión.' },
+    { arrows:[], cards:[{col:'at-agent',tags:[{t:'t-orange',l:'ejecutar'}],text:'Agent ejecuta Write:\n→ todos.js creado'}], insight:null },
+
+    { turn:3, label:'Test → Fallo → Auto-corrección' },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'result + re-solicitud'}],
+      cards:[{col:'at-agent',tags:[{t:'t-orange',l:'ensamblaje'}],text:'messages[] sigue creciendo:\n← Se envía todo al LLM cada vez'}],
+      insight:'LLM es sin estado — lee toda la conversación desde cero cada vez.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Bash'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'decide'}],text:'Código escrito, ejecutar tests:',
+        json:`{ "name": "Bash", "input": { "command": "npm test" } }
+// system prompt: "siempre ejecutar tests después de escribir código"`}],
+      insight:'La instrucción "ejecutar tests" en System Prompt creó este comportamiento.' },
+    { arrows:[{from:2,to:3,color:'var(--red)',label:'test failure'}],
+      cards:[{col:'at-agent',tags:[{t:'t-red',l:'fallo'}],text:'✓ GET /todos\n✗ GET /todos/:id → falta 404'}],
+      insight:'Secreto de la "auto-corrección": los logs de error están en el contexto.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Edit'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'auto-corrección'}],text:'Analiza el fallo y corrige:',
+        json:`{ "name": "Edit", "input": {
+  "old_string": "const todo = todos[id];",
+  "new_string": "...if (!todo) return res.status(404)..." } }`}],
+      insight:'El LLM corrigió el bug porque el log de error + código fuente estaban en el contexto.' },
+
+    { turn:4, label:'MCP — Integración con sistemas externos' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: mcp__jira'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'decide'}],text:'Tests pasados, actualizar Jira:',
+        json:`{ "name": "mcp__jira__transition_issue",
+  "input": { "issue_key": "CLIP-123", "transition": "Done" } }
+// El LLM no sabe que esto es MCP`}],
+      insight:'Para el LLM, Bash y mcp__jira son la misma clase de "herramienta". MCP es un protocolo del Agent.' },
+    { arrows:[], cards:[{col:'at-agent',tags:[{t:'t-pink',l:'MCP routing'}],
+        text:'Agent parsea el nombre:\n"mcp__jira__" prefijo\n→ Reenviar al servidor MCP de Jira\n→ Resultado como tool_result'}],
+      insight:'MCP en realidad: el Agent enruta por prefijo.' },
+
+    { turn:5, label:'Skill — Inyección de plantilla de prompt' },
+    { arrows:[{from:1,to:2,color:'var(--green)',label:'/commit (skill)'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'skill'}],text:'"/commit"'}], insight:null },
+    { arrows:[{from:2,to:3,color:'var(--orange)',label:'skill → prompt'}],
+      cards:[{col:'at-agent',tags:[{t:'t-accent',l:'expansión'}],text:'Agent inyecta el prompt del skill en user message:',
+        json:`{ "role": "user", "content": "/commit\\n# Commit Skill\\n1. git status\\n2. git diff\\n3. Escribir mensaje de commit\\n..." }
+// Skill = plantilla de prompt pre-escrita
+// No existe parámetro "skill" en la API`}],
+      insight:'Un skill es: prompt pre-escrito + lista de herramientas permitidas. No existe parámetro "skill" en la API.' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: git'}],
+      cards:[{col:'at-llm',tags:[{t:'t-accent',l:'sigue instrucciones'}],text:'Ejecuta en el orden del prompt:\n→ git status → git diff → git commit'}],
+      insight:'El LLM no tiene concepto de "ejecutar un skill." Solo sigue instrucciones del user message.' },
+
+    { turn:6, label:'Fin del loop — respuesta sin tool_use' },
+    { arrows:[{from:3,to:2,color:'var(--accent)',label:'text only'}],
+      cards:[{col:'at-llm',tags:[{t:'t-blue',l:'terminado'}],text:'No hay más herramientas que llamar:',
+        json:`{ "stop_reason": "end_turn" }
+// Sin tool_use = nada más que hacer`}],
+      insight:'Condición de fin: si no hay tool_use, el Agent detiene el loop.' },
+    { arrows:[{from:2,to:1,color:'var(--orange)',label:'resultado final'}],
+      cards:[{col:'at-user',tags:[{t:'t-green',l:'resultado'}],text:'"✅ API de tareas completada"'}],
+      insight:'Agent Engineering = Context Engineering.' },
+  ]
+}
+};
 
 // ============================================================
 // ENGINE
 // ============================================================
-let cur = 0, playing = false;
+let lang = 'ko', cur = 0, playing = false;
 const $=id=>document.getElementById(id);
 const stepsEl = $('steps');
-$('stepTotal').textContent = STEPS.filter(s=>!s.turn).length;
+const LANGS = [{code:'ko',name:'한국어'},{code:'en',name:'EN'},{code:'zh',name:'中文'},{code:'ja',name:'日本語'},{code:'es',name:'ES'}];
 
-function delay(){return [3500,2500,1800,1000,500][parseInt($('speedSlider').value)-1]}
-function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
-
-function dedent(h){
-  const lines=h.split('\n');
-  const ne=lines.filter(l=>l.trim());
-  if(!ne.length)return h;
-  const min=Math.min(...ne.map(l=>l.match(/^(\s*)/)[1].length));
-  return lines.map(l=>l.slice(min)).join('\n').trim();
+// Syntax highlight plain JSON text
+function highlight(text) {
+  return text
+    .replace(/("(?:[^"\\]|\\.)*")(\s*:)/g, '<span class="jk">$1</span>$2')  // keys
+    .replace(/:(\s*"(?:[^"\\]|\\.)*")/g, ': <span class="js">$1</span>')     // string values
+    .replace(/"((?:[^"\\]|\\.)*)"/g, (m, p1, off, str) => {
+      // already wrapped? skip
+      if (str.substring(off-6, off).includes('class=')) return m;
+      return `<span class="js">"${p1}"</span>`;
+    })
+    .replace(/([{}\[\]])/g, '<span class="jb">$1</span>')
+    .replace(/(\/\/.*)/g, '<span class="jc">$1</span>')
+    .replace(/(←[^\n]*)/g, '<span class="jc">$1</span>');
 }
 
-async function renderStep(idx) {
-  const s = STEPS[idx];
+function initLang() {
+  const sel = $('langSel');
+  sel.innerHTML = '';
+  LANGS.forEach(({code,name}) => {
+    const btn = document.createElement('button');
+    btn.className = 'lang-btn' + (code===lang?' active':'');
+    btn.textContent = name;
+    btn.onclick = () => { lang=code; reset(); initLang(); };
+    sel.appendChild(btn);
+  });
+  $('subtitle').textContent = L[lang].subtitle;
+  $('insightText').textContent = L[lang].startHint;
+  $('stepTotal').textContent = L[lang].turns.filter(s=>!s.turn).length;
+}
+initLang();
 
-  // Turn divider
+function getDelay(){return [3500,2500,1800,1000,500][parseInt($('speedSlider').value)-1]}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+async function renderStep(idx, autoplay) {
+  const s = L[lang].turns[idx];
   if (s.turn) {
     const d = document.createElement('div');
     d.className = 'turn-divider step';
@@ -578,28 +905,21 @@ async function renderStep(idx) {
   stepEl.className = 'step';
   let html = '';
 
-  // Arrows
-  if (s.arrows && s.arrows.length) {
+  if (s.arrows?.length) {
     html += '<div class="arrow-row">';
     for (const a of s.arrows) {
-      const spanCls = a.from<a.to
-        ? (a.from===1&&a.to===2?'span-1-2':'span-2-3')
-        : (a.from===3&&a.to===2?'span-3-2':'span-2-1');
+      const spanCls = a.from<a.to?(a.from===1&&a.to===2?'span-1-2':'span-2-3'):(a.from===3&&a.to===2?'span-3-2':'span-2-1');
       const dir = a.from<a.to?'right':'left';
-      html += `<div class="arrow ${dir} animate ${spanCls}" style="--arrow-color:${a.color}">
-        <span class="arrow-label">${a.label}</span>
-        <div class="arrow-line"></div><div class="arrow-head"></div>
-      </div>`;
+      html += `<div class="arrow ${dir} animate ${spanCls}" style="--arrow-color:${a.color}"><span class="arrow-label">${a.label}</span><div class="arrow-line"></div><div class="arrow-head"></div></div>`;
     }
     html += '</div>';
   }
 
-  // Cards
-  if (s.cards && s.cards.length) {
+  if (s.cards?.length) {
     html += '<div class="msg-row">';
     for (const c of s.cards) {
       const tags = (c.tags||[]).map(t=>`<span class="card-tag ${t.t}">${t.l}</span>`).join('');
-      const jsonHtml = c.json ? `<div class="json">${dedent(c.json)}</div>` : '';
+      const jsonHtml = c.json ? `<div class="json" data-defer="1">${highlight(c.json)}</div>` : '';
       html += `<div class="msg-card pop ${c.col}">${tags}<div class="card-text">${c.text}</div>${jsonHtml}</div>`;
     }
     html += '</div>';
@@ -609,17 +929,17 @@ async function renderStep(idx) {
   stepsEl.appendChild(stepEl);
   requestAnimationFrame(()=>requestAnimationFrame(()=>stepEl.classList.add('visible')));
 
-  // Update counter & insight
-  const dataSteps = STEPS.slice(0,idx+1).filter(x=>!x.turn).length;
+  // Deferred JSON reveal
+  setTimeout(() => {
+    stepEl.querySelectorAll('.json[data-defer]').forEach(j => j.classList.add('show'));
+  }, 300);
+
+  const dataSteps = L[lang].turns.slice(0,idx+1).filter(x=>!x.turn).length;
   $('stepNum').textContent = dataSteps;
   if (s.insight) $('insightText').textContent = s.insight;
+  setTimeout(()=>stepEl.scrollIntoView({behavior:'smooth',block:'center'}),50);
 
-  // Scroll — ensure new block is fully visible above the sticky insight bar
-  setTimeout(() => {
-    stepEl.scrollIntoView({behavior:'smooth',block:'center'});
-  }, 50);
-
-  await sleep(delay());
+  if (autoplay) await sleep(getDelay());
 }
 
 async function playAll() {
@@ -627,33 +947,34 @@ async function playAll() {
   playing=true;
   $('btnPlay').innerHTML='&#10074;&#10074; Pause';
   $('btnStep').disabled=true;
-  while(playing && cur<STEPS.length){
-    await renderStep(cur); cur++;
+  while(playing && cur<L[lang].turns.length){
+    await renderStep(cur, true); cur++;
   }
-  if(cur>=STEPS.length) onDone();
+  if(cur>=L[lang].turns.length) onDone();
 }
 function pause(){playing=false;$('btnPlay').innerHTML='&#9654; Play';$('btnStep').disabled=false}
-async function step(){
-  if(cur>=STEPS.length)return;
+async function stepOnce(){
+  if(cur>=L[lang].turns.length)return;
   $('btnStep').disabled=true;
-  await renderStep(cur);cur++;
+  await renderStep(cur, false);
+  cur++;
   $('btnStep').disabled=false;
-  if(cur>=STEPS.length) onDone();
+  if(cur>=L[lang].turns.length) onDone();
 }
 function reset(){
   pause();cur=0;stepsEl.innerHTML='';
   $('stepNum').textContent=0;
-  $('insightText').textContent='Play를 눌러 시작하세요.';
+  $('insightText').textContent=L[lang].startHint;
   $('insightBadge').textContent='INSIGHT';
   $('btnPlay').disabled=false;$('btnStep').disabled=false;
 }
 function onDone(){
   pause();$('btnPlay').disabled=true;
   $('insightBadge').textContent='CONCLUSION';
-  $('insightText').textContent='Agent = while(true) { context.assemble() → llm.call() → response.parse() → tool.execute() → context.append(result) }. 이 루프가 전부다. Context Engineering이 곧 Agent Engineering.';
+  $('insightText').textContent=L[lang].conclusion;
 }
 $('btnPlay').addEventListener('click',playAll);
-$('btnStep').addEventListener('click',step);
+$('btnStep').addEventListener('click',stepOnce);
 $('btnReset').addEventListener('click',reset);
 </script>
 </body>
