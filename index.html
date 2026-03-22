@@ -153,7 +153,7 @@ ko: {
   ]
 }
 // system: 페르소나 + 규칙 + 스킬 목록 (텍스트로 주입)
-// skills는 별도 API 파라미터가 아니라 system 안의 텍스트
+// ⚠️ skills는 별도 API 파라미터가 아니다 — system 텍스트의 일부일 뿐
 // tools: LLM이 호출할 수 있는 도구 정의
 // messages: 대화 히스토리 (첫 턴이라 1개)`}],
       insight:'Agent의 핵심 역할: system + tools[] + messages[]를 조립해서 LLM API에 보내는 것. 스킬은 system 프롬프트 안에 텍스트로, MCP 도구는 tools[]에 섞여 들어간다. LLM은 이 구분을 모른다.' },
@@ -225,7 +225,7 @@ ko: {
     { arrows:[{from:2,to:3,color:'var(--orange)',label:'result + 재요청'}],
       cards:[{col:'at-agent',tags:[{t:'t-orange',l:'context 조립'}],
         text:'messages[]가 점점 길어진다:\n\n[user] "할일 API 만들어줘"\n[assistant] tool_use: Bash(ls)\n[user] tool_result: 디렉토리 목록\n[assistant] tool_use: Write(todos.js)\n[user] tool_result: 파일 생성 완료\n← 매번 이 전부를 LLM에게 보낸다'}],
-      insight:'LLM은 stateless — 매 호출마다 전체 대화를 처음부터 다시 읽는다. "기억"이란 없고, messages[]에 있는 것이 전부다. 대화가 길어지면 context window를 넘기므로 Agent가 오래된 메시지를 요약/삭제한다.' },
+      insight:'LLM은 stateless — 매 호출마다 전체 대화를 처음부터 다시 읽는다. "기억"이란 없고, messages[]에 있는 것이 전부다. 대화가 길어지면 context window를 넘기므로 Agent 구현에 따라 오래된 메시지를 요약하거나, 잘라내거나, 오류를 반환한다.' },
     { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Bash'}],
       cards:[{col:'at-llm',tags:[{t:'t-accent',l:'판단'}],
         text:'코드를 작성했으니 테스트 실행:',
@@ -298,7 +298,7 @@ ko: {
   "stop_reason": "end_turn"
 }
 // tool_use가 없다 = 더 할 일이 없다
-// Agent는 이걸 보고 루프를 멈춘다`}],
+// Agent는 이걸 보고 루프를 멈춘다 (또는 maxTurns 초과 시)`}],
       insight:'루프 종료 조건: LLM 응답에 tool_use가 없으면 Agent는 루프를 멈추고 텍스트를 사용자에게 보여준다.' },
     { arrows:[{from:2,to:1,color:'var(--orange)',label:'최종 결과'}],
       cards:[{col:'at-user',tags:[{t:'t-green',l:'결과 표시'}],
@@ -334,7 +334,7 @@ en: {
   ]
 }
 // system: persona + rules + skill list (injected as text)
-// skills are NOT a separate API parameter — just text in system
+// ⚠️ skills are NOT a separate API parameter — just part of system text
 // tools: tool definitions the LLM can call
 // messages: conversation history (just 1 on first turn)`}],
       insight:'The Agent\'s core job: assemble system + tools[] + messages[] and send to the LLM API. Skills are injected as text in system prompt. MCP tools are mixed into tools[]. The LLM doesn\'t know the difference.' },
@@ -406,7 +406,7 @@ en: {
     { arrows:[{from:2,to:3,color:'var(--orange)',label:'result + re-request'}],
       cards:[{col:'at-agent',tags:[{t:'t-orange',l:'context assembly'}],
         text:'messages[] keeps growing:\n\n[user] "Build a todo API"\n[assistant] tool_use: Bash(ls)\n[user] tool_result: directory listing\n[assistant] tool_use: Write(todos.js)\n[user] tool_result: file created\n← All of this sent to LLM every time'}],
-      insight:'The LLM is stateless — it reads the entire conversation from scratch every call. There is no "memory," only what\'s in messages[]. When it gets too long, the Agent summarizes/truncates old messages.' },
+      insight:'The LLM is stateless — it reads the entire conversation from scratch every call. There is no "memory," only what\'s in messages[]. When it gets too long, the Agent may summarize, truncate, or return an error — depending on implementation.' },
     { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Bash'}],
       cards:[{col:'at-llm',tags:[{t:'t-accent',l:'decides'}],
         text:'Code written, now run tests:',
@@ -479,7 +479,7 @@ en: {
   "stop_reason": "end_turn"
 }
 // No tool_use = nothing left to do
-// Agent sees this and stops the loop`}],
+// Agent sees this and stops the loop (or maxTurns exceeded)`}],
       insight:'Loop termination: when LLM response has no tool_use, the Agent stops the loop and shows the text to the user.' },
     { arrows:[{from:2,to:1,color:'var(--orange)',label:'final result'}],
       cards:[{col:'at-user',tags:[{t:'t-green',l:'result'}],
@@ -513,7 +513,7 @@ zh: {
   ]
 }
 // system: 人设 + 规则 + 技能列表（作为文本注入）
-// skills 不是独立的 API 参数，只是 system 中的文本
+// ⚠️ skills 不是独立的 API 参数 — 只是 system 文本的一部分
 // tools: LLM 可以调用的工具定义`}],
       insight:'Agent 的核心工作：组装 system + tools[] + messages[] 发送给 LLM API。Skills 作为文本注入 system prompt，MCP 工具混入 tools[]。LLM 不知道区别。' },
     { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
@@ -562,7 +562,7 @@ zh: {
     { turn:3, label:'测试 → 失败 → 自我修正' },
     { arrows:[{from:2,to:3,color:'var(--orange)',label:'result + 重新请求'}],
       cards:[{col:'at-agent',tags:[{t:'t-orange',l:'上下文组装'}],text:'messages[] 越来越长：\n← 每次都将全部发送给 LLM'}],
-      insight:'LLM 无状态——每次调用都从头读取整个对话。超出 context window 时 Agent 会总结/删除旧消息。' },
+      insight:'LLM 无状态——每次调用都从头读取整个对话。超出 context window 时，Agent 会根据实现方式总结、截断旧消息或返回错误。' },
     { arrows:[{from:3,to:2,color:'var(--accent)',label:'tool_use: Bash'}],
       cards:[{col:'at-llm',tags:[{t:'t-accent',l:'决策'}],text:'代码写完，运行测试:',
         json:`{ "name": "Bash", "input": { "command": "npm test" } }
@@ -608,7 +608,7 @@ zh: {
       cards:[{col:'at-llm',tags:[{t:'t-blue',l:'完成'}],text:'没有更多工具可调用:',
         json:`{ "stop_reason": "end_turn" }
 // 无 tool_use = 没有更多要做的
-// Agent 看到后停止循环`}],
+// Agent 看到后停止循环（或 maxTurns 超限）`}],
       insight:'循环终止：LLM 响应无 tool_use 时，Agent 停止循环并向用户展示文本。' },
     { arrows:[{from:2,to:1,color:'var(--orange)',label:'最终结果'}],
       cards:[{col:'at-user',tags:[{t:'t-green',l:'结果'}],text:'"✅ 待办 API 完成"'}],
@@ -640,7 +640,7 @@ ja: {
   ]
 }
 // system: ペルソナ + ルール + スキル一覧（テキストとして注入）
-// skills は独立した API パラメータではない
+// ⚠️ skills は独立した API パラメータではない — system テキストの一部
 // tools: LLM が呼び出せるツール定義`}],
       insight:'Agent の核心: system + tools[] + messages[] を組み立てて LLM API に送る。スキルは system にテキストとして、MCP ツールは tools[] に混ざって入る。LLM はこの区別を知らない。' },
     { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
@@ -723,7 +723,7 @@ ja: {
     { arrows:[{from:3,to:2,color:'var(--accent)',label:'text only'}],
       cards:[{col:'at-llm',tags:[{t:'t-blue',l:'完了'}],text:'呼び出すツールがないと判断:',
         json:`{ "stop_reason": "end_turn" }
-// tool_use なし = もうやることがない`}],
+// tool_use なし = もうやることがない（または maxTurns 超過）`}],
       insight:'ループ終了条件: tool_use がなければ Agent はループを停止。' },
     { arrows:[{from:2,to:1,color:'var(--orange)',label:'最終結果'}],
       cards:[{col:'at-user',tags:[{t:'t-green',l:'結果'}],text:'"✅ Todo API 完成"'}],
@@ -755,7 +755,7 @@ es: {
   ]
 }
 // system: persona + reglas + lista de skills (inyectado como texto)
-// skills NO es un parámetro API separado
+// ⚠️ skills NO es un parámetro API separado — es parte del texto system
 // tools: definiciones de herramientas que el LLM puede llamar`}],
       insight:'Rol central del Agent: ensamblar system + tools[] + messages[] y enviar a la API del LLM. Los skills se inyectan como texto en system, las herramientas MCP se mezclan en tools[].' },
     { arrows:[{from:3,to:2,color:'var(--accent)',label:'response (tool_use)'}],
@@ -838,7 +838,7 @@ es: {
     { arrows:[{from:3,to:2,color:'var(--accent)',label:'text only'}],
       cards:[{col:'at-llm',tags:[{t:'t-blue',l:'terminado'}],text:'No hay más herramientas que llamar:',
         json:`{ "stop_reason": "end_turn" }
-// Sin tool_use = nada más que hacer`}],
+// Sin tool_use = nada más que hacer (o maxTurns excedido)`}],
       insight:'Condición de fin: si no hay tool_use, el Agent detiene el loop.' },
     { arrows:[{from:2,to:1,color:'var(--orange)',label:'resultado final'}],
       cards:[{col:'at-user',tags:[{t:'t-green',l:'resultado'}],text:'"✅ API de tareas completada"'}],
