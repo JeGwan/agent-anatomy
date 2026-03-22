@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#08080d"/>
+  <!-- Three nodes: User(green), Agent(orange), LLM(purple) -->
+  <circle cx="8" cy="10" r="3" fill="#34d399"/>
+  <circle cx="24" cy="10" r="3" fill="#fbbf24"/>
+  <circle cx="16" cy="25" r="3.5" fill="#818cf8" stroke="#818cf8" stroke-width="1" stroke-opacity="0.3"/>
+  <!-- Arrows forming a cycle -->
+  <path d="M12 9 L20 9" stroke="#555" stroke-width="1.2" fill="none" marker-end="url(#ar)"/>
+  <path d="M25.5 13 L18.5 22" stroke="#555" stroke-width="1.2" fill="none" marker-end="url(#ar)"/>
+  <path d="M13.5 22 L6.5 13" stroke="#555" stroke-width="1.2" fill="none" marker-end="url(#ar)"/>
+  <defs>
+    <marker id="ar" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto">
+      <path d="M0,0 L4,2 L0,4" fill="#888"/>
+    </marker>
+  </defs>
+</svg>
